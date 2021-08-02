@@ -1,5 +1,5 @@
 {
-    "name": "white-dev/craft-commercepicqer",
+    "name": "white-nl/commerce-picqer",
     "description": "Use the official Picqer plugin to connect your Craft Commerce webshop to the Picqer warehouse management platform for efficient order handling.",
     "type": "craft-plugin",
     "license": "proprietary",
