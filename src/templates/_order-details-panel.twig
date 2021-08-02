@@ -1,0 +1,39 @@
+
+<div class="order-meta-container">
+    <div class="meta read-only">
+        <h4>{{ "Picqer"|t('commerce-picqer') }}</h4>
+        
+            <div class="data">
+                <h5 class="heading">{{ "Picqer Order ID"|t('commerce-picqer') }}</h5>
+                <p class="value">
+                    {% if status.picqerOrderId %}
+                        <a href="{{ "https://" ~ plugin.settings.getApiDomain() ~ ".picqer.com/orders/" ~ status.picqerOrderId }}" target="_blank" class="go">
+                            {{- status.picqerOrderNumber|default(status.picqerOrderId) -}}
+                        </a>
+                    {% else %}
+                        {{ "N/A"|t('commerce-picqer') }}
+                    {% endif %}
+                </p>
+            </div>
+        {% if status and status.picqerOrderId %}
+            <div class="data">
+                <h5 class="heading">{{ "Stock allocated"|t('commerce-picqer') }}</h5>
+                <p class="value">{{ status.stockAllocated ? "Yes"|t('commerce-picqer') : "No"|t('commerce-picqer') }}</p>
+            </div>
+            <div class="data">
+                <h5 class="heading">{{ "Processed"|t('commerce-picqer') }}</h5>
+                <p class="value">{{ status.processed ? "Yes"|t('commerce-picqer') : "No"|t('commerce-picqer') }}</p>
+            </div>
+            {% if status.publicStatusPage %}
+                <div class="data">
+                    <h5 class="heading">{{ "Status page"|t('commerce-picqer') }}</h5>
+                    <p class="value">
+                        <a href="{{ status.publicStatusPage }}" target="_blank" class="go">
+                            {{- status.publicStatusPage|truncate(25) -}}
+                        </a>
+                    </p>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>

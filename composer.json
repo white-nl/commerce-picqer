@@ -1,0 +1,29 @@
+{
+    "name": "white-dev/craft-commercepicqer",
+    "description": "Use the official Picqer plugin to connect your Craft Commerce webshop to the Picqer warehouse management platform for efficient order handling.",
+    "type": "craft-plugin",
+    "license": "proprietary",
+    "require": {
+        "craftcms/cms": "^3.3.0",
+        "craftcms/commerce": "^3.1",
+        "picqer/api-client": "^0.22.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^6.4"
+    },
+    "autoload": {
+        "psr-4": {
+          "white\\commerce\\picqer\\": "src/"
+        }
+    },
+    "extra": {
+        "handle": "commerce-picqer",
+        "name": "Commerce Picqer",
+        "developer": "Digital Agency WHITE",
+        "developerUrl": "https://white.nl/en/",
+        "hasCpSettings": true,
+        "hasCpSection": true,
+        "class": "white\\commerce\\picqer\\CommercePicqerPlugin",
+        "documentationUrl": "https://white.nl/en/craft-plugins/picqer/docs/"
+    }
+}

@@ -1,0 +1,302 @@
+{% extends "_layouts/cp" %}
+{% import "_includes/forms" as forms %}
+
+{% set fullPageForm = true %}
+
+{% set title = "{pluginName} Settings"|t('commerce-picqer', {pluginName: plugin.name}) %}
+{% set docTitle = title ~ ' - ' ~ "Plugins"|t('app') %}
+{% set crumbs = [
+    { label: "Settings"|t('app'), url: url('settings') },
+    { label: "Plugins"|t('app'), url: url('settings/plugins') }
+] %}
+{% set selectedSubnavItem = 'settings' %}
+
+{% set tabs = [
+    { label: 'General', url: '#settings-general' },
+] %}
+{% if settings.apiDomain is not empty and settings.apiKey is not empty %}
+    {% set tabs = tabs|merge([
+        { label: 'Craft to Picqer'|t('commerce-picqer'), url: '#settings-craft2picqer' },
+        { label: 'Picqer to Craft'|t('commerce-picqer'), url: '#settings-picqer2craft' },
+        { label: 'Advanced'|t('commerce-picqer'), url: '#settings-advanced' },
+    ]) %}
+{% endif %}
+
+{% block actionButton %}
+    {% if allowAdminChanges %}
+        {{ parent() }}
+    {% endif %}
+{% endblock actionButton %}
+
+{% block content %}
+    {{ actionInput('plugins/save-plugin-settings') }}
+    {{ hiddenInput('pluginHandle', plugin.handle) }}
+    {{ redirectInput('commerce-picqer/settings') }}
+
+    {% if not allowAdminChanges %}
+        <div class="pane">
+            <p class="warning">
+                {{ "Administrative changes to the system have been restricted in your environment configuration. Some of the settings have been disabled."|t('commerce-picqer') }}
+            </p>
+        </div>
+    {% endif %}
+
+    {% namespace 'settings' %}
+    <div id="fields">
+        <div>
+            <div id="general">
+                {{ forms.autosuggestField({
+                    label:        "API Subdomain"|t('commerce-picqer'),
+                    instructions: "Your picqer subdomain (SUBDOMAIN.picqer.com, without the `.picqer.com` part)."|t('commerce-picqer'),
+                    id:           'apiDomain',
+                    name:         'apiDomain',
+                    suggestEnvVars: true,
+                    value:        settings.apiDomain,
+                    errors:       settings.getErrors('apiDomain'),
+                    disabled:     not allowAdminChanges,
+                }) }}
+                
+                {{ forms.autosuggestField({
+                    label:        "API Key"|t('commerce-picqer'),
+                    instructions: "API keys can be generated in your Picqer settings."|t('commerce-picqer'),
+                    id:           'apiKey',
+                    name:         'apiKey',
+                    suggestEnvVars: true,
+                    value:        settings.apiKey,
+                    errors:       settings.getErrors('apiKey'),
+                    disabled:     not allowAdminChanges,
+                }) }}
+            </div>
+            <div id="craft2picqer" class="hidden">
+
+                {{ forms.lightswitchField({
+                    label:        "Push orders to Picqer"|t('commerce-picqer'),
+                    id:           'pushOrders',
+                    name:         'pushOrders',
+                    on:           settings.pushOrders,
+                    disabled:     not allowAdminChanges,
+                }) }}
+                
+                {{ forms.multiselectField({
+                    label:        "Order Status to push orders"|t('commerce-picqer'),
+                    instructions: "When a Craft order status changes to one of these, push the order to Picqer."|t('commerce-picqer'),
+                    id:           'orderStatusToPush',
+                    name:         'orderStatusToPush',
+                    options:      settings.getOrderStatusOptions(),
+                    values:        settings.orderStatusToPush,
+                    errors:       settings.getErrors('orderStatusToPush'),
+                    class: 'selectize fullwidth',
+                    disabled:     not allowAdminChanges,
+                }) }}
+
+                {{ forms.checkboxField({
+                    label:        "Push product prices when pushing orders."|t('commerce-picqer'),
+                    id:           'pushPrices',
+                    name:         'pushPrices',
+                    checked:      settings.pushPrices,
+                    disabled:     not allowAdminChanges,
+                }) }}
+
+                {{ forms.checkboxField({
+                    label:        "Automatically create missing products."|t('commerce-picqer'),
+                    id:           'createMissingProducts',
+                    name:         'createMissingProducts',
+                    checked:      settings.createMissingProducts,
+                    disabled:     not allowAdminChanges,
+                }) }}
+                
+                {{ forms.multiselectField({
+                    label:        "Order Status to allocate stock"|t('commerce-picqer'),
+                    instructions: "When a Craft order status changes to one of these, allocate stock on Picqer."|t('commerce-picqer'),
+                    id:           'orderStatusToAllocate',
+                    name:         'orderStatusToAllocate',
+                    options:      settings.getOrderStatusOptions(),
+                    values:        settings.orderStatusToAllocate,
+                    errors:       settings.getErrors('orderStatusToAllocate'),
+                    class: 'selectize fullwidth',
+                    disabled:     not allowAdminChanges,
+                }) }}
+                
+                {{ forms.multiselectField({
+                    label:        "Order Status to process order"|t('commerce-picqer'),
+                    instructions: "When a Craft order status changes to one of these, process the order on Picqer."|t('commerce-picqer'),
+                    id:           'orderStatusToProcess',
+                    name:         'orderStatusToProcess',
+                    options:      settings.getOrderStatusOptions(),
+                    values:        settings.orderStatusToProcess,
+                    errors:       settings.getErrors('orderStatusToProcess'),
+                    class: 'selectize fullwidth',
+                    disabled:     not allowAdminChanges,
+                }) }}
+            </div>
+            <div id="picqer2craft" class="hidden">
+
+                {{ forms.lightswitchField({
+                    label:        "Pull product stock"|t('commerce-picqer'),
+                    instructions: "Listen for incoming webhooks from Picqer and syncronize all product stock changes in Craft."|t('commerce-picqer'),
+                    id:           'pullProductStock',
+                    name:         'pullProductStock',
+                    on:           settings.pullProductStock,
+                    disabled:     not allowAdminChanges,
+                }) }}
+                
+                <div id="productStockSyncWebhook" class="webhook-status" data-hook-type="productStockSync">
+                    {{ "Webhook status:"|t('commerce-picqer') }}
+                    <output></output>
+                    <span class="webhook-loading">{{ "Loading..."|t('commerce-picqer') }}</span>
+                    <button type="button" class="btn btn icon add webhook-register" style="display: none;">{{ "Register"|t }}</button>
+                    <button type="button" class="btn btn icon delete webhook-remove" style="display: none;">{{ "Remove"|t }}</button>
+                </div>
+
+                {{ forms.lightswitchField({
+                    label:        "Pull order status"|t('commerce-picqer'),
+                    instructions: "Listen for incoming webhooks from Picqer and syncronize order status changes in Craft."|t('commerce-picqer'),
+                    id:           'pullOrderStatus',
+                    name:         'pullOrderStatus',
+                    on:           settings.pullOrderStatus,
+                    disabled:     not allowAdminChanges,
+                }) }}
+
+                <div id="orderStatusSyncWebhook" class="webhook-status" data-hook-type="orderStatusSync">
+                    {{ "Webhook status:"|t('commerce-picqer') }}
+                    <output></output>
+                    <span class="webhook-loading">{{ "Loading..."|t('commerce-picqer') }}</span>
+                    <button type="button" class="btn btn icon add webhook-register" style="display: none;">{{ "Register"|t }}</button>
+                    <button type="button" class="btn btn icon delete webhook-remove" style="display: none;">{{ "Remove"|t }}</button>
+                </div>
+
+                {{ forms.editableTableField({
+                    label: 'Order status mapping'|t('commerce-picqer'),
+                    instructions: 'You can map specific Picqer order status to a Craft order status. Craft order status will be updated automatically when the Picqer order status changes.'|t('commerce-picqer'),
+                    id: 'mapping',
+                    name: 'orderStatusMapping',
+                    cols: {
+                        craft: {
+                            type: "select",
+                            options: settings.getOrderStatusOptions('(Any)'|t('commerce-picqer')),
+                            heading: 'From Craft order status'|t('commerce-picqer')
+                        },
+                        picqer: {
+                            type: "select",
+                            options: settings.getPicqerStatuses(),
+                            heading: 'When Picqer status changes to'|t('commerce-picqer')
+                        },
+                        changeTo: {
+                            type: 'select',
+                            options: settings.getOrderStatusOptions(),
+                            heading: 'Change Craft status to'|t('commerce-picqer')
+                        },
+                    },
+                    rows: settings.orderStatusMapping,
+                    static:     not allowAdminChanges,
+                }) }}
+
+            </div>
+            <div id="advanced" class="hidden">
+
+                {{ forms.lightswitchField({
+                    label:        "Fast stock updates"|t('commerce-picqer'),
+                    instructions: "Update product stock directly in the database without running normal product saving routine (may affect other plugins)."|t('commerce-picqer'),
+                    id:           'fastStockUpdate',
+                    name:         'fastStockUpdate',
+                    on:           settings.fastStockUpdate,
+                    disabled:     not allowAdminChanges,
+                }) }}
+
+                {{ forms.textField({
+                    label:        "Plugin display name"|t('commerce-picqer'),
+                    instructions: "The plugin name as you'd like it to be displayed in the Control Panel."|t('commerce-picqer'),
+                    id:           'pluginNameOverride',
+                    name:         'pluginNameOverride',
+                    value:        settings.pluginNameOverride,
+                    errors:       settings.getErrors('pluginNameOverride'),
+                    disabled:     not allowAdminChanges,
+                }) }}
+            </div>
+        </div>
+    </div>
+    {% endnamespace %}
+
+
+    {% if false %}<script>{% endif %}
+    {% js %}
+        $('#settings-orderStatusToPush, #settings-orderStatusToAllocate, #settings-orderStatusToProcess').selectize({
+            plugins: ['remove_button'],
+            dropdownParent: 'body'
+        });
+    
+        $('.webhook-status').each(function() {
+            var type = $(this).data('hook-type');
+            var statusOutput = $(this).find('output');
+            var loadingLabel = $(this).find('.webhook-loading');
+            var registerButton = $(this).find('.webhook-register');
+            var removeButton = $(this).find('.webhook-remove');
+            
+            var updateStatus = function(data) {
+                statusOutput.html(
+                    '<span class="status ' + (data.status === 'active' ? 'live' : 'off') + '"></span>' + 
+                    data.statusText
+                );
+                loadingLabel.hide();
+                if (data.status === 'active') {
+                    registerButton.hide();
+                    removeButton.show();
+                } else {
+                    registerButton.show();
+                    removeButton.hide();
+                }
+            };
+            
+            $.ajax('{{ actionUrl('commerce-picqer/admin/webhooks/get-hook-status') }}', { data: {type: type}})
+                .done(function(data) {
+                    updateStatus(data);
+                });
+
+            registerButton.on('click', function(e) {
+                e.preventDefault();
+
+                statusOutput.text('');
+                loadingLabel.show();
+                registerButton.hide();
+                
+                var data = {};
+                data['type'] = type;
+                data[Craft.csrfTokenName] = Craft.csrfTokenValue;
+                $.ajax('{{ actionUrl('commerce-picqer/admin/webhooks/refresh') }}', { method: 'post', data: data })
+                    .done(function(data) {
+                        updateStatus(data);
+                    });
+            });
+
+            removeButton.on('click', function(e) {
+                e.preventDefault();
+
+                statusOutput.text('');
+                loadingLabel.show();
+                removeButton.hide();
+                
+                var data = {};
+                data['type'] = type;
+                data[Craft.csrfTokenName] = Craft.csrfTokenValue;
+                $.ajax('{{ actionUrl('commerce-picqer/admin/webhooks/remove') }}', { method: 'post', data: data })
+                    .done(function(data) {
+                        updateStatus(data);
+                    });
+            });
+        });
+    {% endjs %}
+    {% if false %}</script>{% endif %}
+
+    {# Craft "special" styling fix for selectize. #}
+    {% if false %}<style>{% endif %}
+    {% css %}
+        body .selectize-dropdown-content > div[data-value="new"]:before {
+            content: '';
+            margin-right: 0;
+        }
+        body .selectize-dropdown-content > div[data-value="new"]:after {
+            content: '';
+        }
+    {% endcss %}
+    {% if false %}</style>{% endif %}
+{% endblock content %}
