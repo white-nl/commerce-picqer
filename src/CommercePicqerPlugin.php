@@ -6,7 +6,9 @@ use Craft;
 use craft\base\Plugin;
 use craft\commerce\elements\Order;
 use craft\events\RegisterUrlRulesEvent;
+use craft\events\RegisterUserPermissionsEvent;
 use craft\helpers\UrlHelper;
+use craft\services\UserPermissions;
 use craft\web\Controller;
 use craft\web\UrlManager;
 use white\commerce\picqer\models\Settings;
@@ -38,6 +40,7 @@ class CommercePicqerPlugin extends Plugin
         $this->registerServices();
         $this->registerEventListeners();
         $this->registerCpUrls();
+        $this->registerPermissions();
     }
 
     protected function registerNameOverride()
@@ -116,5 +119,14 @@ class CommercePicqerPlugin extends Plugin
             ],
         ];
         return $item;
+    }
+
+    protected function registerPermissions()
+    {
+        Event::on(UserPermissions::class, UserPermissions::EVENT_REGISTER_PERMISSIONS, function(RegisterUserPermissionsEvent $event) {
+            $event->permissions[Craft::t('commerce-picqer', 'Picqer')] = [
+                'commerce-picqer-pushOrders' => ['label' => Craft::t('commerce-picqer', 'Manually push orders to Picqer')],
+            ];
+        });
     }
 }

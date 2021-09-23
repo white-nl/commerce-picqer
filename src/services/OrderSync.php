@@ -49,13 +49,13 @@ class OrderSync extends Component
                     return;
                 }
                 
-                $this->pushOrderStatus($event->sender);
+                $this->syncOrder($event->sender);
             }
         );
         
     }
     
-    public function pushOrderStatus(Order $order)
+    public function syncOrder(Order $order)
     {
         $status = $this->getOrderSyncStatus($order);
 
@@ -70,57 +70,100 @@ class OrderSync extends Component
             }
             
             if (in_array($orderStatus->handle, $orderStatusToPush)) {
-                if (!$status->pushed) {
-                    
-                    try {
-                        $picqerData = $this->picqerApi->pushOrder($order);
-                    } catch (PicqerApiException $e) {
-                        if ($e->getPicqerErrorCode() == 24 && $this->settings->createMissingProducts) {
-                            $purchasables = [];
-                            foreach ($order->getLineItems() as $lineItem) {
-                                if (!array_keys($purchasables, $lineItem->getSku())) {
-                                    $purchasables[$lineItem->getSku()] = $lineItem->getPurchasable();
-                                }
-                            }
-
-                            $this->picqerApi->createMissingProducts($purchasables);
-                            $picqerData = $this->picqerApi->pushOrder($order);
-                            
-                        } else {
-                            throw $e;
-                        }
-                    }
-                    
-                    $status->picqerOrderId = $picqerData['idorder'];
-                    $status->picqerOrderNumber = $picqerData['orderid'];
-                    $status->publicStatusPage = $picqerData['public_status_page'];
-                    $status->pushed = true;
-                    $this->saveOrderSyncStatus($status);
-                    $this->log->log("Order #{$order->number} pushed to Picqer, PicqerOrderId={$status->picqerOrderId}.");
-                }
+                $this->pushOrder($status);
             }
-
             if (in_array($orderStatus->handle, $orderStatusToAllocate) && !in_array($orderStatus->handle, $orderStatusToProcess)) {
-                if ($status->pushed && !$status->stockAllocated) {
-                    $this->picqerApi->allocateStockForOrder($status->picqerOrderId);
-                    $status->stockAllocated = true;
-                    $this->saveOrderSyncStatus($status);
-                    $this->log->log("Picqer stock allocated for order #{$order->number}, PicqerOrderId={$status->picqerOrderId}.");
-                }
+                $this->allocateStockForOrder($status);
             }
-
             if (in_array($orderStatus->handle, $orderStatusToProcess)) {
-                if ($status->pushed && !$status->processed) {
-                    $this->picqerApi->processOrder($status->picqerOrderId);
-                    $status->stockAllocated = true;
-                    $status->processed = true;
-                    $this->saveOrderSyncStatus($status);
-                    $this->log->log("Order #{$order->number} processed in Picqer, PicqerOrderId={$status->picqerOrderId}.");
-                }
+                $this->processOrder($status);
             }
+            
         } catch (\Exception $e) {
             $this->log->error("Picqer order synchronization failed.", $e);
         }
+    }
+
+    public function pushOrder(OrderSyncStatus $status, $force = false)
+    {
+        $order = $status->getOrder();
+        if ($order === null) {
+            throw new \Exception("OrderSyncStatus::order is empty.");
+        }
+        
+        if ($status->pushed && !$force) {
+            return false;
+        }
+
+        if (empty($status->picqerOrderId)) {
+            $picqerData = $this->picqerApi->pushOrder($order, $this->settings->createMissingProducts);
+            $status->picqerOrderId = $picqerData['idorder'];
+            $status->picqerOrderNumber = $picqerData['orderid'];
+            $status->publicStatusPage = $picqerData['public_status_page'];
+        } else {
+            $this->picqerApi->updateOrder($status->picqerOrderId, $order, $this->settings->createMissingProducts);
+        }
+        
+        $status->pushed = true;
+        $this->saveOrderSyncStatus($status);
+        $this->log->log("Order #{$order->number} pushed to Picqer, PicqerOrderId={$status->picqerOrderId}.");
+        
+        return true;
+    }
+
+    public function allocateStockForOrder(OrderSyncStatus $status)
+    {
+        $order = $status->getOrder();
+        if ($order === null) {
+            throw new \Exception("OrderSyncStatus::order is empty.");
+        }
+
+        if (!$status->pushed || $status->stockAllocated) {
+            return false;
+        }
+
+        try {
+            $this->picqerApi->allocateStockForOrder($status->picqerOrderId);
+        } catch (PicqerApiException $e) {
+            if ($e->getPicqerErrorCode() != PicqerApiException::ORDER_ALREADY_CLOSED &&
+                $e->getPicqerErrorCode() != PicqerApiException::ORDER_ALREADY_CLOSED) {
+                throw $e;
+            }
+        }
+        
+        $status->stockAllocated = true;
+        $this->saveOrderSyncStatus($status);
+        $this->log->log("Picqer stock allocated for order #{$order->number}, PicqerOrderId={$status->picqerOrderId}.");
+        
+        return true;
+    }
+
+    public function processOrder(OrderSyncStatus $status)
+    {
+        $order = $status->getOrder();
+        if ($order === null) {
+            throw new \Exception("OrderSyncStatus::order is empty.");
+        }
+
+        if (!$status->pushed || $status->processed) {
+            return false;
+        }
+
+        try {
+            $this->picqerApi->processOrder($status->picqerOrderId);
+        } catch (PicqerApiException $e) {
+            if ($e->getPicqerErrorCode() != PicqerApiException::ORDER_ALREADY_CLOSED &&
+                $e->getPicqerErrorCode() != PicqerApiException::ORDER_ALREADY_CLOSED) {
+                throw $e;
+            }
+        }
+        
+        $status->stockAllocated = true;
+        $status->processed = true;
+        $this->saveOrderSyncStatus($status);
+        $this->log->log("Order #{$order->number} processed in Picqer, PicqerOrderId={$status->picqerOrderId}.");
+        
+        return true;
     }
     
     public function getOrderSyncStatus(Order $order)
@@ -134,7 +177,10 @@ class OrderSync extends Component
             ]);
         }
         
-        return new OrderSyncStatus($record);
+        $status = new OrderSyncStatus($record);
+        $status->setOrder($order);
+
+        return $status;
     }
 
     public function saveOrderSyncStatus(OrderSyncStatus $model)

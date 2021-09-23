@@ -5,6 +5,10 @@ namespace white\commerce\picqer\errors;
 
 class PicqerApiException extends \Exception
 {
+    public const PRODUCT_DOES_NOT_EXIST = 24;
+    public const ORDER_IS_BEING_PROCESSED = 30;
+    public const ORDER_ALREADY_CLOSED = 32;
+    
     protected $picqerErrorCode;
     
     protected $picqerErrorMessage;

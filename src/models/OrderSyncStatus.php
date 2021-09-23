@@ -5,6 +5,8 @@ namespace white\commerce\picqer\models;
 
 
 use craft\base\Model;
+use craft\commerce\elements\Order;
+use craft\commerce\Plugin as CommercePlugin;
 
 class OrderSyncStatus extends Model
 {
@@ -50,6 +52,11 @@ class OrderSyncStatus extends Model
     public $uid;
 
     /**
+     * @var Order Order
+     */
+    private $_order;
+
+    /**
      * @inheritdoc
      */
     public function rules()
@@ -57,5 +64,31 @@ class OrderSyncStatus extends Model
         return [
             [['orderId'], 'required'],
         ];
+    }
+
+    /**
+     * @return Order|null
+     */
+    public function getOrder()
+    {
+        if ($this->_order === null && $this->orderId !== null) {
+            $this->_order = CommercePlugin::getInstance()->getOrders()->getOrderById($this->orderId);
+        }
+
+        return $this->_order;
+    }
+
+    /**
+     * @param Order $order
+     * @throws \Exception
+     */
+    public function setOrder(Order $order)
+    {
+        if ($this->orderId !== null && $this->orderId != $order->id) {
+            throw new \Exception("Cannot change order ID.");
+        }
+        
+        $this->_order = $order;
+        $this->orderId = $order->id;
     }
 }

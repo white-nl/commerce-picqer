@@ -16,10 +16,10 @@
                 </p>
             </div>
         {% if status and status.picqerOrderId %}
-            <div class="data">
+            {#<div class="data">
                 <h5 class="heading">{{ "Stock allocated"|t('commerce-picqer') }}</h5>
                 <p class="value">{{ status.stockAllocated ? "Yes"|t('commerce-picqer') : "No"|t('commerce-picqer') }}</p>
-            </div>
+            </div>#}
             <div class="data">
                 <h5 class="heading">{{ "Processed"|t('commerce-picqer') }}</h5>
                 <p class="value">{{ status.processed ? "Yes"|t('commerce-picqer') : "No"|t('commerce-picqer') }}</p>
@@ -35,5 +35,59 @@
                 </div>
             {% endif %}
         {% endif %}
+        <div class="picqer-actions">
+            {% if order.isCompleted %}
+                {% if currentUser.can('commerce-picqer-pushOrders') %}
+                    {% if not status or not status.processed %}
+                    <button type="button" class="picqer-order-action btn-default btn" data-action="commerce-picqer/admin/orders/push" data-order-id="{{ order.Id }}">
+                        {{ "Push to Picqer"|t('commerce-picqer') }}
+                    </button>
+                    {% endif %}
+                    {% if status and status.picqerOrderId %}
+                        <br/>
+                        <br/>
+                        {% if not status.stockAllocated and not status.processed %}
+                            <button type="button" class="picqer-order-action btn-default btn" data-action="commerce-picqer/admin/orders/allocate" data-order-id="{{ order.Id }}">
+                                {{ "Allocate stock"|t('commerce-picqer') }}
+                            </button>
+                        {% endif %}
+                        {% if not status.processed %}
+                            <button type="button" class="picqer-order-action btn-default btn" data-action="commerce-picqer/admin/orders/process" data-order-id="{{ order.Id }}">
+                                {{ "Process order"|t('commerce-picqer') }}
+                            </button>
+                        {% endif %}
+                    {% endif %}
+                    
+                {% endif %}
+            {% endif %}
+        </div>
+        
     </div>
 </div>
+
+{% if false %}<script>{% endif %}
+{% js %}
+(() => {
+    $('.picqer-order-action').click(function() {
+        var $form = Craft.createForm().attr('target', $(this).data('target')).appendTo(Garnish.$bod);
+        $(Craft.getCsrfInput()).appendTo($form);
+        $('<input/>', {
+            type: 'hidden',
+            name: 'action',
+            value: $(this).data('action')
+        }).appendTo($form);
+        $('<input/>', {
+            type: 'hidden',
+            name: 'orderId',
+            value: $(this).data('order-id')
+        }).appendTo($form);
+        $('<input/>', {
+            type: 'submit',
+            value: 'Submit'
+        }).appendTo($form);
+        $form.submit();
+        $form.remove();
+    });
+})();
+{% endjs %}
+{% if false %}</script>{% endif %}

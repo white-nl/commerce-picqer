@@ -9,6 +9,7 @@ use craft\commerce\Plugin as CommercePlugin;
 use craft\web\Controller;
 use Picqer\Api\PicqerWebhook;
 use white\commerce\picqer\CommercePicqerPlugin;
+use white\commerce\picqer\models\OrderSyncStatus;
 use white\commerce\picqer\models\Webhook;
 use yii\helpers\VarDumper;
 use yii\web\HttpException;
@@ -137,11 +138,21 @@ class WebhooksController extends Controller
             
             if ($statusId !== null && $statusId != $order->orderStatusId) {
                 $order->orderStatusId = $statusId;
+                $order->message = \Craft::t('commerce-picqer',"[Picqer] Status updated via webhook ({status})",['status' => $data['status']]);
                 if (!\Craft::$app->getElements()->saveElement($order)) {
                     throw new \Exception("Could not update order status. " . json_encode($order->getFirstErrors()));
                 } else {
                     $this->log->log("Order status changed to '{$order->orderStatusId}' for order '{$order->reference}'.");
                 }
+            }
+
+            if ($data['status'] == OrderSyncStatus::STATUS_COMPLETED ||
+                $data['status'] == OrderSyncStatus::STATUS_PROCESSING) {
+                
+                $status = CommercePicqerPlugin::getInstance()->orderSync->getOrderSyncStatus($order);
+                $status->stockAllocated = true;
+                $status->processed = true;
+                CommercePicqerPlugin::getInstance()->orderSync->saveOrderSyncStatus($status);
             }
             
         } catch (HttpException $e) {
