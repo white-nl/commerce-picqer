@@ -2,7 +2,7 @@
 <div class="order-meta-container">
     <div class="meta read-only">
         <h4>{{ "Picqer"|t('commerce-picqer') }}</h4>
-        
+
             <div class="data">
                 <h5 class="heading">{{ "Picqer Order ID"|t('commerce-picqer') }}</h5>
                 <p class="value">
@@ -16,10 +16,10 @@
                 </p>
             </div>
         {% if status and status.picqerOrderId %}
-            {#<div class="data">
+            <div class="data">
                 <h5 class="heading">{{ "Stock allocated"|t('commerce-picqer') }}</h5>
                 <p class="value">{{ status.stockAllocated ? "Yes"|t('commerce-picqer') : "No"|t('commerce-picqer') }}</p>
-            </div>#}
+            </div>
             <div class="data">
                 <h5 class="heading">{{ "Processed"|t('commerce-picqer') }}</h5>
                 <p class="value">{{ status.processed ? "Yes"|t('commerce-picqer') : "No"|t('commerce-picqer') }}</p>
@@ -57,11 +57,11 @@
                             </button>
                         {% endif %}
                     {% endif %}
-                    
+
                 {% endif %}
             {% endif %}
         </div>
-        
+
     </div>
 </div>
 

@@ -3,29 +3,37 @@
 
 namespace white\commerce\picqer\services;
 
-
 use craft\base\Component;
 use white\commerce\picqer\models\Webhook;
 use white\commerce\picqer\records\Webhook as WebhookRecord;
 
 class Webhooks extends Component
 {
-    public function getWebhookByType($type)
+    /**
+     * @param string $type
+     * @return Webhook|null
+     */
+    public function getWebhookByType(string $type): ?Webhook
     {
         $record = WebhookRecord::findOne(['type' => $type]);
         if (!$record) {
             return null;
         }
 
-        return new Webhook($record);
+        return new Webhook($record->toArray());
     }
-    
-    public function saveWebhook(Webhook $model)
+
+    /**
+     * @param Webhook $model
+     * @return bool
+     */
+    public function saveWebhook(Webhook $model): bool
     {
-        $record = WebhookRecord::findOne([
-            'id' => $model->id,
-        ]);
-        if (!$record) {
+        if (isset($model->id)) {
+            $record = WebhookRecord::findOne([
+                'id' => $model->id,
+            ]);
+        } else {
             $record = new WebhookRecord([
                 'type' => $model->type,
             ]);
@@ -35,12 +43,16 @@ class Webhooks extends Component
         $record->secret = $model->secret;
 
         $record->save();
-        $model->id = $record->id;
+        $model->id = $record->getAttribute('id');
 
         return true;
     }
 
-    public function delete(Webhook $webhook)
+    /**
+     * @param Webhook $webhook
+     * @return int
+     */
+    public function delete(Webhook $webhook): int
     {
         if ($webhook->id) {
             return WebhookRecord::deleteAll(['id' => $webhook->id]);

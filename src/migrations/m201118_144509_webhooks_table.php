@@ -2,7 +2,6 @@
 
 namespace white\commerce\picqer\migrations;
 
-use Craft;
 use craft\db\Migration;
 
 /**

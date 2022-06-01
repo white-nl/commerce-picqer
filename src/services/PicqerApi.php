@@ -3,43 +3,39 @@
 
 namespace white\commerce\picqer\services;
 
+use Craft;
 use craft\base\Component;
 use craft\commerce\base\PurchasableInterface;
 use craft\commerce\elements\Order;
-use craft\commerce\models\Address;
+use craft\elements\Address;
 use Picqer\Api\Client as PicqerApiClient;
 use white\commerce\picqer\CommercePicqerPlugin;
 use white\commerce\picqer\errors\PicqerApiException;
 use white\commerce\picqer\models\Settings;
+use yii\base\InvalidConfigException;
 
 class PicqerApi extends Component
 {
-    /** @var Settings */
-    private $settings;
+    private ?Settings $settings = null;
     
-    /** @var \Picqer\Api\Client */
-    private $client;
+    private ?PicqerApiClient $client = null;
 
-    /** @var Log */
-    private $log;
-
-
-    public function init()
+    public function init(): void
     {
         parent::init();
 
-        $this->log = CommercePicqerPlugin::getInstance()->log;
-        if ($this->settings === null)
-        {
+        if ($this->settings === null) {
             $this->settings = CommercePicqerPlugin::getInstance()->getSettings();
         }
     }
-    
-    public function getClient()
+
+    /**
+     * @return PicqerApiClient|null
+     */
+    public function getClient(): ?PicqerApiClient
     {
-        if ($this->client === null)
-        {
-            $apiClient = new \Picqer\Api\Client($this->settings->getApiDomain(), $this->settings->getApiKey());
+        if ($this->client === null) {
+            $apiClient = new PicqerApiClient($this->settings->getApiDomain(), $this->settings->getApiKey());
             $apiClient->enableRetryOnRateLimitHit();
             $apiClient->setUseragent(CommercePicqerPlugin::getInstance()->description . ' (' . CommercePicqerPlugin::getInstance()->developerUrl . ')');
             
@@ -54,7 +50,7 @@ class PicqerApi extends Component
      * @return \Generator
      * @throws \Picqer\Api\Exception
      */
-    public function getProducts(array $filters = [])
+    public function getProducts(array $filters = []): \Generator
     {
         return $this->getClient()->getResultGenerator('product', $filters);
     }
@@ -63,15 +59,15 @@ class PicqerApi extends Component
      * @param string $productCode
      * @return array
      */
-    public function getProductByProductCode($productCode)
-    { 
+    public function getProductByProductCode(string $productCode): array
+    {
         return $this->getClient()->getProductByProductcode($productCode);
     }
 
     /**
      * @param PurchasableInterface[] $purchasables
      */
-    public function createMissingProducts(array $purchasables)
+    public function createMissingProducts(array $purchasables): void
     {
         foreach ($purchasables as $purchasable) {
             $result = $this->getClient()->getProducts(['productcode' => $purchasable->getSku()]);
@@ -85,15 +81,21 @@ class PicqerApi extends Component
         }
     }
 
-    public function pushOrder(Order $order, $createMissingProducts = false)
+    /**
+     * @param Order $order
+     * @param bool $createMissingProducts
+     * @return mixed
+     * @throws PicqerApiException
+     */
+    public function pushOrder(Order $order, bool $createMissingProducts = false): mixed
     {
         $data = $this->buildOrderData($order);
         $data['products'] = [];
         foreach ($order->getLineItems() as $lineItem) {
             $lineData = [
-                'productcode' => (string)$lineItem->getSku(),
+                'productcode' => $lineItem->getSku(),
                 'amount' => $lineItem->qty,
-                'remarks' => (string)$lineItem->note,
+                'remarks' => $lineItem->note,
             ];
             
             if ($this->settings->pushPrices) {
@@ -124,10 +126,17 @@ class PicqerApi extends Component
             }
         }
         
-        return $response['data']; 
+        return $response['data'];
     }
 
-    public function updateOrder($picqerOrderId, Order $order, $createMissingProducts = false)
+    /**
+     * @param int $picqerOrderId
+     * @param Order $order
+     * @param bool $createMissingProducts
+     * @return mixed
+     * @throws PicqerApiException
+     */
+    public function updateOrder(int $picqerOrderId, Order $order, bool $createMissingProducts = false): mixed
     {
         $response = $this->getClient()->getOrder($picqerOrderId);
         if (!$response['success'] || empty($response['data']['idorder'])) {
@@ -138,7 +147,7 @@ class PicqerApi extends Component
         // Update order data
         $data = $this->buildOrderData($order);
         $orderUpdateResponse = $response = $this->getClient()->updateOrder($picqerOrderId, $data);
-        if (!$response['success'] || !isset($response['data']['idorder'])) {
+        if (!$response['success']) {
             throw new PicqerApiException($response);
         }
 
@@ -206,10 +215,15 @@ class PicqerApi extends Component
             $this->allocateStockForOrder($picqerOrderId);
         }
         
-        return $orderUpdateResponse['data']; 
+        return $orderUpdateResponse['data'];
     }
-    
-    public function findPicqerOrders(Order $order)
+
+    /**
+     * @param Order $order
+     * @return mixed
+     * @throws PicqerApiException
+     */
+    public function findPicqerOrders(Order $order): mixed
     {
         $response = $this->getClient()->getOrders(['reference' => $this->composeOrderReference($order)]);
         if (!$response['success'] || !isset($response['data'])) {
@@ -219,7 +233,12 @@ class PicqerApi extends Component
         return $response['data'];
     }
 
-    public function allocateStockForOrder($picqerOrderId)
+    /**
+     * @param int $picqerOrderId
+     * @return mixed
+     * @throws PicqerApiException
+     */
+    public function allocateStockForOrder(int $picqerOrderId): mixed
     {
         $response = $this->getClient()->allocateStockForOrder($picqerOrderId);
         if (!$response['success'] || !isset($response['data'])) {
@@ -229,7 +248,12 @@ class PicqerApi extends Component
         return $response['data'];
     }
 
-    public function processOrder($picqerOrderId)
+    /**
+     * @param int $picqerOrderId
+     * @return mixed
+     * @throws PicqerApiException
+     */
+    public function processOrder(int $picqerOrderId): mixed
     {
         $response = $this->getClient()->processOrder($picqerOrderId);
         if (!$response['success'] || !isset($response['data'])) {
@@ -239,7 +263,12 @@ class PicqerApi extends Component
         return $response['data'];
     }
 
-    public function createHook($data)
+    /**
+     * @param array $data
+     * @return mixed
+     * @throws PicqerApiException
+     */
+    public function createHook(array $data): mixed
     {
         $response = $this->getClient()->addHook($data);
         if (!$response['success'] || !isset($response['data'])) {
@@ -249,7 +278,12 @@ class PicqerApi extends Component
         return $response['data'];
     }
 
-    public function getHook($id)
+    /**
+     * @param int $id
+     * @return mixed
+     * @throws PicqerApiException
+     */
+    public function getHook(int $id): mixed
     {
         $response = $this->getClient()->getHook($id);
         if (!$response['success'] || !isset($response['data'])) {
@@ -259,7 +293,12 @@ class PicqerApi extends Component
         return $response['data'];
     }
 
-    public function deleteHook($id)
+    /**
+     * @param int $id
+     * @return mixed
+     * @throws PicqerApiException
+     */
+    public function deleteHook(int $id): mixed
     {
         $response = $this->getClient()->deleteHook($id);
         if (!$response['success'] || !isset($response['data'])) {
@@ -269,57 +308,84 @@ class PicqerApi extends Component
         return $response['data'];
     }
 
-    protected function buildOrderData(Order $order)
+    /**
+     * @param Order $order
+     * @return array
+     * @throws InvalidConfigException
+     */
+    protected function buildOrderData(Order $order): array
     {
+        $shippingAddress = $order->getShippingAddress();
+        $billingAddress = $order->getBillingAddress();
+        $shippingCountry = $shippingAddress?->getCountryCode();
+        $billingCountry = $billingAddress?->getCountryCode();
+        if ($shippingCountry) {
+            $shippingCountryText = Craft::$app->getAddresses()->getCountryRepository()->get($shippingCountry)->getName();
+        }
+        if ($billingCountry !== $shippingCountry) {
+            $billingCountryText = Craft::$app->getAddresses()->getCountryRepository()->get($billingCountry)->getName();
+        }
         return [
             'reference' => $this->composeOrderReference($order),
-            'emailaddress' => $order->email,
+            'emailaddress' => $order->getEmail(),
 
-            'deliveryname' => $this->composeAddressName($order->shippingAddress),
-            'deliverycontactname' => $this->composeAddressContactName($order->shippingAddress),
-            'deliveryaddress' => $order->shippingAddress->address1,
-            'deliveryaddress2' => $order->shippingAddress->address2,
-            'deliveryzipcode' => $order->shippingAddress->zipCode,
-            'deliverycity' => $order->shippingAddress->city,
-            'deliveryregion' => $order->shippingAddress->stateText,
-            'deliverycountry' => $order->shippingAddress->countryIso,
+            'deliveryname' => $this->composeAddressName($shippingAddress),
+            'deliverycontactname' => $this->composeAddressContactName($shippingAddress),
+            'deliveryaddress' => $shippingAddress?->getAddressLine1(),
+            'deliveryaddress2' => $shippingAddress?->getAddressLine2(),
+            'deliveryzipcode' => $shippingAddress?->getPostalCode(),
+            'deliverycity' => $shippingAddress?->getLocality(),
+            'deliveryregion' => $shippingAddress?->getAdministrativeArea(),
+            'deliverycountry' => $shippingCountryText ?? '',
 
-            'invoicename' => $this->composeAddressName($order->billingAddress),
-            'invoicecontactname' => $this->composeAddressContactName($order->billingAddress),
-            'invoiceaddress' => $order->billingAddress->address1,
-            'invoiceaddress2' => $order->billingAddress->address2,
-            'invoicezipcode' => $order->billingAddress->zipCode,
-            'invoicecity' => $order->billingAddress->city,
-            'invoiceregion' => $order->billingAddress->stateText,
-            'invoicecountry' => $order->billingAddress->countryIso,
+            'invoicename' => $this->composeAddressName($billingAddress),
+            'invoicecontactname' => $this->composeAddressContactName($billingAddress),
+            'invoiceaddress' => $billingAddress?->getAddressLine1(),
+            'invoiceaddress2' => $billingAddress?->getAddressLine2(),
+            'invoicezipcode' => $billingAddress?->getPostalCode(),
+            'invoicecity' => $billingAddress?->getLocality(),
+            'invoiceregion' => $billingAddress?->getAdministrativeArea(),
+            'invoicecountry' => $billingCountryText ?? $shippingCountryText ?? '',
         ];
     }
 
-    protected function composeOrderReference(Order $order)
+    /**
+     * @param Order $order
+     * @return string|null
+     */
+    protected function composeOrderReference(Order $order): ?string
     {
         return $order->reference ?: $order->number;
     }
-    
-    protected function composeAddressName(Address $address)
+
+    /**
+     * @param Address|null $address
+     * @return int|string|null
+     */
+    protected function composeAddressName(?Address $address): int|string|null
     {
-        if ($address->businessName) {
-            return $address->businessName;
+        if ($address?->getOrganization()) {
+            return $address->getOrganization();
         }
         
-        if ($address->fullName) {
+        if ($address?->fullName) {
             return $address->fullName;
         }
         
-        if ($address->firstName || $address->lastName) {
+        if ($address?->firstName || $address?->lastName) {
             return trim(sprintf('%s %s', $address->firstName, $address->lastName));
         }
         
-        return $address->id;
+        return $address?->getId();
     }
-    
-    protected function composeAddressContactName(Address $address)
+
+    /**
+     * @param Address|null $address
+     * @return string|null
+     */
+    protected function composeAddressContactName(?Address $address): ?string
     {
-        if ($address->businessName) {
+        if ($address->getOrganization()) {
             if ($address->fullName) {
                 return $address->fullName;
             }

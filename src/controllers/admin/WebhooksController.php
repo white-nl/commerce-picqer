@@ -3,41 +3,52 @@
 
 namespace white\commerce\picqer\controllers\admin;
 
-
+use Craft;
 use craft\helpers\UrlHelper;
 use craft\web\Controller;
 use white\commerce\picqer\CommercePicqerPlugin;
+use white\commerce\picqer\errors\PicqerApiException;
 use white\commerce\picqer\models\Webhook;
+use white\commerce\picqer\services\PicqerApi;
+use white\commerce\picqer\services\Webhooks;
+use yii\base\InvalidConfigException;
+use yii\web\BadRequestHttpException;
+use yii\web\ForbiddenHttpException;
+use yii\web\Response;
 
 class WebhooksController extends Controller
 {
     /**
-     * @var \white\commerce\picqer\models\Settings
+     * @var mixed|PicqerApi
      */
-    private $settings;
+    private mixed $picqerApi;
     
     /**
-     * @var mixed|\white\commerce\picqer\services\PicqerApi
+     * @var mixed|Webhooks
      */
-    private $picqerApi;
-    
-    /**
-     * @var mixed|\white\commerce\picqer\services\Webhooks
-     */
-    private $webhooks;
+    private mixed $webhooks;
 
-    public function init()
+    /**
+     * @return void
+     * @throws InvalidConfigException
+     * @throws ForbiddenHttpException
+     */
+    public function init(): void
     {
         parent::init();
 
         $this->requirePermission('accessPlugin-commerce-picqer');
 
-        $this->settings = CommercePicqerPlugin::getInstance()->getSettings();
         $this->picqerApi = CommercePicqerPlugin::getInstance()->api;
         $this->webhooks = CommercePicqerPlugin::getInstance()->webhooks;
     }
 
-    public function actionGetHookStatus()
+    /**
+     * @return Response
+     * @throws PicqerApiException
+     * @throws BadRequestHttpException
+     */
+    public function actionGetHookStatus(): Response
     {
         $type = $this->request->getRequiredParam('type');
         
@@ -45,7 +56,7 @@ class WebhooksController extends Controller
         if (!$settings || empty($settings->picqerHookId)) {
             return $this->asJson([
                 'status' => 'none',
-                'statusText' => \Craft::t('commerce-picqer', 'Not registered'),
+                'statusText' => Craft::t('commerce-picqer', 'Not registered'),
             ]);
         }
 
@@ -53,28 +64,35 @@ class WebhooksController extends Controller
         if (!$hookInfo) {
             return $this->asJson([
                 'status' => 'none',
-                'statusText' => \Craft::t('commerce-picqer', 'Not registered'),
+                'statusText' => Craft::t('commerce-picqer', 'Not registered'),
             ]);
         }
 
         if (!empty($hookInfo['active'])) {
             return $this->asJson([
                 'status' => 'active',
-                'statusText' => \Craft::t('commerce-picqer', 'Active'),
+                'statusText' => Craft::t('commerce-picqer', 'Active'),
                 'hookInfo' => $hookInfo,
             ]);
         }
 
         return $this->asJson([
             'status' => 'inactive',
-            'statusText' => \Craft::t('commerce-picqer', 'Not active'),
+            'statusText' => Craft::t('commerce-picqer', 'Not active'),
             'hookInfo' => $hookInfo,
         ]);
     }
 
-    public function actionRefresh()
+    /**
+     * @return Response
+     * @throws BadRequestHttpException
+     * @throws PicqerApiException
+     * @throws \JsonException
+     * @throws \Exception
+     */
+    public function actionRefresh(): Response
     {
-        $generalConfig = \Craft::$app->getConfig()->getGeneral();
+        $generalConfig = Craft::$app->getConfig()->getGeneral();
         
         $type = $this->request->getRequiredBodyParam('type');
 
@@ -84,7 +102,7 @@ class WebhooksController extends Controller
             $this->webhooks->delete($settings);
         }
 
-        $secret = md5(mt_rand());
+        $secret = md5((string)random_int(0, mt_getrandmax()));
         $event = null;
         $action = null;
         switch ($type) {
@@ -120,12 +138,17 @@ class WebhooksController extends Controller
 
         return $this->asJson([
             'status' => 'active',
-            'statusText' => \Craft::t('commerce-picqer', 'Active'),
+            'statusText' => Craft::t('commerce-picqer', 'Active'),
             'hookInfo' => $hookInfo,
         ]);
     }
 
-    public function actionRemove()
+    /**
+     * @return Response
+     * @throws BadRequestHttpException
+     * @throws PicqerApiException
+     */
+    public function actionRemove(): Response
     {
         $type = $this->request->getRequiredBodyParam('type');
 
@@ -137,7 +160,7 @@ class WebhooksController extends Controller
 
         return $this->asJson([
             'status' => 'inactive',
-            'statusText' => \Craft::t('commerce-picqer', 'Not active'),
+            'statusText' => Craft::t('commerce-picqer', 'Not active'),
         ]);
     }
 }

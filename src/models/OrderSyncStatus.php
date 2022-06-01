@@ -3,19 +3,19 @@
 
 namespace white\commerce\picqer\models;
 
-
 use craft\base\Model;
 use craft\commerce\elements\Order;
 use craft\commerce\Plugin as CommercePlugin;
+use DateTime;
 
 class OrderSyncStatus extends Model
 {
-    const STATUS_CONCEPT = 'concept';
-    const STATUS_PROCESSING = 'processing';
-    const STATUS_COMPLETED = 'completed';
-    const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_CONCEPT = 'concept';
+    public const STATUS_PROCESSING = 'processing';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
 
-    const STATUSES = [
+    public const STATUSES = [
         self::STATUS_CONCEPT => "Concept",
         self::STATUS_PROCESSING => "Processing",
         self::STATUS_COMPLETED => "Completed",
@@ -23,43 +23,43 @@ class OrderSyncStatus extends Model
     ];
     
     /** @var integer */
-    public $id;
+    public int $id;
 
     /** @var integer */
-    public $orderId;
+    public int $orderId;
 
     /** @var integer|null */
-    public $picqerOrderId;
+    public ?int $picqerOrderId = null;
 
     /** @var boolean */
-    public $pushed = false;
+    public bool $pushed = false;
 
     /** @var boolean */
-    public $stockAllocated = false;
+    public bool $stockAllocated = false;
 
     /** @var boolean */
-    public $processed = false;
+    public bool $processed = false;
 
     /** @var string|null */
-    public $picqerOrderNumber;
+    public ?string $picqerOrderNumber;
 
     /** @var string|null */
-    public $publicStatusPage;
+    public ?string $publicStatusPage;
     
-    public $dateCreated;
-    public $dateUpdated;
-    public $dateDeleted;
-    public $uid;
+    public DateTime $dateCreated;
+    public DateTime $dateUpdated;
+    public ?DateTime $dateDeleted = null;
+    public string $uid;
 
     /**
-     * @var Order Order
+     * @var Order|null Order
      */
-    private $_order;
+    private ?Order $_order = null;
 
     /**
      * @inheritdoc
      */
-    public function rules()
+    public function rules(): array
     {
         return [
             [['orderId'], 'required'],
@@ -68,10 +68,11 @@ class OrderSyncStatus extends Model
 
     /**
      * @return Order|null
+     * @throws \yii\base\InvalidConfigException
      */
-    public function getOrder()
+    public function getOrder(): ?Order
     {
-        if ($this->_order === null && $this->orderId !== null) {
+        if ($this->_order === null) {
             $this->_order = CommercePlugin::getInstance()->getOrders()->getOrderById($this->orderId);
         }
 
@@ -82,9 +83,9 @@ class OrderSyncStatus extends Model
      * @param Order $order
      * @throws \Exception
      */
-    public function setOrder(Order $order)
+    public function setOrder(Order $order): void
     {
-        if ($this->orderId !== null && $this->orderId != $order->id) {
+        if ($this->orderId != $order->id) {
             throw new \Exception("Cannot change order ID.");
         }
         

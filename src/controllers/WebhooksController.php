@@ -3,44 +3,50 @@
 
 namespace white\commerce\picqer\controllers;
 
-
 use craft\commerce\elements\Order;
 use craft\commerce\Plugin as CommercePlugin;
 use craft\web\Controller;
 use Picqer\Api\PicqerWebhook;
+use Picqer\Api\WebhookException;
+use Picqer\Api\WebhookSignatureMismatchException;
 use white\commerce\picqer\CommercePicqerPlugin;
 use white\commerce\picqer\models\OrderSyncStatus;
-use white\commerce\picqer\models\Webhook;
-use yii\helpers\VarDumper;
+use white\commerce\picqer\models\Settings;
+use white\commerce\picqer\services\Log;
+use white\commerce\picqer\services\ProductSync;
+use white\commerce\picqer\services\Webhooks;
+use yii\base\InvalidConfigException;
 use yii\web\HttpException;
+use yii\web\Response;
 
 class WebhooksController extends Controller
 {
-    /**
-     * @var \white\commerce\picqer\models\Settings
-     */
-    private $settings;
+    private ?Settings $settings = null;
 
     /**
-     * @var mixed|\white\commerce\picqer\services\Log
+     * @var mixed|Log
      */
-    private $log;
+    private mixed $log;
 
     /**
-     * @var \white\commerce\picqer\services\ProductSync
+     * @var ProductSync|null
      */
-    private $productSync;
+    private ?ProductSync $productSync = null;
     
     /**
-     * @var mixed|\white\commerce\picqer\services\Webhooks
+     * @var mixed|Webhooks
      */
-    private $webhooks;
+    private mixed $webhooks;
 
     
-    protected $allowAnonymous = self::ALLOW_ANONYMOUS_LIVE;
+    protected array|int|bool $allowAnonymous = self::ALLOW_ANONYMOUS_LIVE;
 
 
-    public function init()
+    /**
+     * @return void
+     * @throws InvalidConfigException
+     */
+    public function init(): void
     {
         parent::init();
         $this->enableCsrfValidation = false;
@@ -51,7 +57,10 @@ class WebhooksController extends Controller
         $this->webhooks = CommercePicqerPlugin::getInstance()->webhooks;
     }
 
-    public function actionOnProductStockChanged()
+    /**
+     * @return Response
+     */
+    public function actionOnProductStockChanged(): Response
     {
         if (!$this->settings->pullProductStock) {
             return $this->asJson(['status' => 'IGNORED'])->setStatusCode(400);
@@ -76,7 +85,6 @@ class WebhooksController extends Controller
             
             $this->log->log("Updating stock for product '$sku': {$totalFreeStock}");
             $this->productSync->updateStock($sku, $totalFreeStock);
-            
         } catch (HttpException $e) {
             $this->log->error("Could not process webhook", $e);
             return $this->asJson(['status' => 'ERROR'])->setStatusCode($e->statusCode);
@@ -88,7 +96,11 @@ class WebhooksController extends Controller
         return $this->asJson(['status' => 'OK']);
     }
 
-    public function actionOnOrderStatusChanged()
+    /**
+     * @return Response
+     * @throws \Throwable
+     */
+    public function actionOnOrderStatusChanged(): Response
     {
         if (!$this->settings->pullOrderStatus) {
             return $this->asJson(['status' => 'IGNORED'])->setStatusCode(400);
@@ -108,10 +120,11 @@ class WebhooksController extends Controller
             if (empty($data['status'])) {
                 throw new \Exception("Invalid webhook data received.");
             }
-            
+
+            /** @var Order|null $order */
             $order = Order::find()
                 ->reference($data['reference'])
-                ->anyStatus()
+                ->status(null)
                 ->one();
             if (!$order) {
                 $this->log->trace("Order '{$data['reference']}' not found.");
@@ -140,29 +153,26 @@ class WebhooksController extends Controller
                 $order->orderStatusId = $statusId;
                 $order->message = \Craft::t('commerce-picqer',"[Picqer] Status updated via webhook ({status})",['status' => $data['status']]);
                 if (!\Craft::$app->getElements()->saveElement($order)) {
-                    throw new \Exception("Could not update order status. " . json_encode($order->getFirstErrors()));
-                } else {
-                    $this->log->log("Order status changed to '{$order->orderStatusId}' for order '{$order->reference}'.");
+                    throw new \Exception("Could not update order status. " . json_encode($order->getFirstErrors(), JSON_THROW_ON_ERROR));
                 }
+
+                $this->log->log("Order status changed to '{$order->orderStatusId}' for order '{$order->reference}'.");
             }
 
             if ($data['status'] == OrderSyncStatus::STATUS_COMPLETED ||
                 $data['status'] == OrderSyncStatus::STATUS_PROCESSING) {
-                
                 $status = CommercePicqerPlugin::getInstance()->orderSync->getOrderSyncStatus($order);
                 $status->stockAllocated = true;
                 $status->processed = true;
                 CommercePicqerPlugin::getInstance()->orderSync->saveOrderSyncStatus($status);
             }
-            
         } catch (HttpException $e) {
             $this->log->error("Could not process webhook", $e);
             return $this->asJson(['status' => 'ERROR'])->setStatusCode($e->statusCode);
         } catch (\Exception $e) {
             $this->log->error("Could not process webhook", $e);
             return $this->asJson(['status' => 'ERROR'])->setStatusCode(500);
-        }
-        finally {
+        } finally {
             $this->settings->pushOrders = $originalPushOrders;
         }
 
@@ -171,11 +181,11 @@ class WebhooksController extends Controller
 
     /**
      * @param string $type
-     * @return PicqerWebhook|\yii\web\Response
-     * @throws \Picqer\Api\WebhookException
-     * @throws \Picqer\Api\WebhookSignatureMismatchException
+     * @return PicqerWebhook|Response
+     * @throws WebhookException
+     * @throws WebhookSignatureMismatchException
      */
-    protected function receiveWebhook($type)
+    protected function receiveWebhook(string $type): PicqerWebhook|Response
     {
         $settings = $this->webhooks->getWebhookByType($type);
         if (!$settings) {

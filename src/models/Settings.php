@@ -6,42 +6,45 @@ namespace white\commerce\picqer\models;
 use Craft;
 use craft\base\Model;
 use craft\commerce\Plugin as CommercePlugin;
+use craft\helpers\App;
+use yii\base\InvalidConfigException;
 
+/**
+ *
+ * @property-read array $picqerStatuses
+ */
 class Settings extends Model
 {
-    public $apiDomain;
+    public string $apiDomain;
     
-    public $apiKey;
+    public string $apiKey;
 
-    public $pushOrders = false;
+    public bool $pushOrders = false;
     
-    public $orderStatusToPush = [];
+    public array $orderStatusToPush = [];
     
-    public $orderStatusToAllocate = [];
+    public array $orderStatusToAllocate = [];
     
-    public $orderStatusToProcess = [];
+    public array $orderStatusToProcess = [];
     
-    public $pushPrices = false;
+    public bool $pushPrices = false;
     
-    public $createMissingProducts = false;
+    public bool $createMissingProducts = false;
     
-    public $pullProductStock = false;
+    public bool $pullProductStock = false;
     
-    public $pullOrderStatus = false;
+    public bool $pullOrderStatus = false;
 
-    /**
-     * @var array
-     */
-    public $orderStatusMapping = [];
+    public array $orderStatusMapping = [];
 
-    public $fastStockUpdate = false;
+    public bool $fastStockUpdate = false;
 
-    public $pluginNameOverride;
+    public string $pluginNameOverride;
 
     /**
      * @inheritdoc
      */
-    public function init()
+    public function init(): void
     {
         parent::init();
     }
@@ -49,7 +52,7 @@ class Settings extends Model
     /**
      * {@inheritdoc}
      */
-    public function rules()
+    public function rules(): array
     {
         return [
             ['pluginNameOverride', 'default', 'value' => Craft::t('commerce-picqer', "Picqer")],
@@ -58,7 +61,12 @@ class Settings extends Model
         ];
     }
 
-    public function getOrderStatusOptions($optional = null)
+    /**
+     * @param string|null $optional
+     * @return array
+     * @throws InvalidConfigException
+     */
+    public function getOrderStatusOptions(?string $optional = null): array
     {
         $statuses = CommercePlugin::getInstance()->getOrderStatuses()->getAllOrderStatuses();
         $options = [];
@@ -76,7 +84,6 @@ class Settings extends Model
 
     /**
      * Get all Picqer statuses
-     *
      * @return array
      */
     public function getPicqerStatuses(): array
@@ -89,13 +96,19 @@ class Settings extends Model
         return $options;
     }
 
-    public function getApiDomain()
+    /**
+     * @return bool|string|null
+     */
+    public function getApiDomain(): bool|string|null
     {
-        return \Craft::parseEnv($this->apiDomain);
+        return App::parseEnv($this->apiDomain);
     }
 
-    public function getApiKey()
+    /**
+     * @return bool|string|null
+     */
+    public function getApiKey(): bool|string|null
     {
-        return \Craft::parseEnv($this->apiKey);
+        return App::parseEnv($this->apiKey);
     }
 }

@@ -3,31 +3,30 @@
 
 namespace white\commerce\picqer\models;
 
-
 use craft\base\Model;
 
 class Webhook extends Model
 {
     /** @var integer */
-    public $id;
+    public int $id;
 
     /** @var string */
-    public $type;
+    public string $type;
 
     /** @var integer */
-    public $picqerHookId;
+    public int $picqerHookId;
 
     /** @var string|null */
-    public $secret;
+    public ?string $secret;
 
-    public $dateCreated;
-    public $dateUpdated;
-    public $uid;
+    public \DateTime $dateCreated;
+    public \DateTime $dateUpdated;
+    public string $uid;
     
     /**
      * @inheritdoc
      */
-    public function rules()
+    public function rules(): array
     {
         return [
             [['type', 'picqerHookId'], 'required'],

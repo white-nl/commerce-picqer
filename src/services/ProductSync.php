@@ -3,33 +3,40 @@
 
 namespace white\commerce\picqer\services;
 
-
 use craft\base\Component;
 use craft\commerce\elements\Variant;
 use craft\commerce\records\Variant as VariantRecord;
+use craft\errors\ElementNotFoundException;
 use white\commerce\picqer\CommercePicqerPlugin;
+use white\commerce\picqer\models\Settings;
+use yii\base\Exception;
 
 class ProductSync extends Component
 {
-    /**
-     * @var \white\commerce\picqer\models\Settings
-     */
-    private $settings;
+    private ?Settings $settings = null;
 
     /**
-     * @var \white\commerce\picqer\services\Log
+     * @var Log
      */
-    private $log;
+    private Log $log;
 
-    public function init()
+    public function init(): void
     {
         parent::init();
 
         $this->settings = CommercePicqerPlugin::getInstance()->getSettings();
         $this->log = CommercePicqerPlugin::getInstance()->log;
     }
-    
-    public function updateStock($sku, $stock)
+
+    /**
+     * @param string $sku
+     * @param int $stock
+     * @return void
+     * @throws \Throwable
+     * @throws ElementNotFoundException
+     * @throws Exception
+     */
+    public function updateStock(string $sku, int $stock): void
     {
         if ($this->settings->fastStockUpdate) {
             $variantRecord = VariantRecord::findOne(['sku' => $sku]);
@@ -48,8 +55,7 @@ class ProductSync extends Component
             } else {
                 $this->log->trace("Variant '{$sku}' stock remains unchanged: '{$stock}'");
             }
-        }
-        else {
+        } else {
             $variant = Variant::find()->sku($sku)->one();
             if (!$variant) {
                 $this->log->trace("Variant '{$sku}' not found.");

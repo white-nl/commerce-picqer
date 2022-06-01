@@ -2,7 +2,6 @@
 
 namespace white\commerce\picqer\migrations;
 
-use Craft;
 use craft\db\Migration;
 
 class Install extends Migration
@@ -29,7 +28,7 @@ class Install extends Migration
             ]);
             
             $this->addForeignKey(
-                $this->db->getForeignKeyName('{{%commercepicqer_ordersyncstatus}}', 'orderId'),
+                $this->db->getForeignKeyName(),
                 '{{%commercepicqer_ordersyncstatus}}', 'orderId', '{{%commerce_orders}}', 'id', 'CASCADE', null);
             
             $this->createIndex(null, '{{%commercepicqer_ordersyncstatus}}', ['orderId'], true);

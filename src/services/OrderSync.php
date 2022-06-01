@@ -3,7 +3,6 @@
 
 namespace white\commerce\picqer\services;
 
-
 use craft\base\Component;
 use craft\base\Element;
 use craft\commerce\elements\Order;
@@ -14,19 +13,18 @@ use white\commerce\picqer\models\OrderSyncStatus;
 use white\commerce\picqer\models\Settings;
 use white\commerce\picqer\records\OrderSyncStatus as OrderSyncStatusRecord;
 use yii\base\Event;
+use yii\base\InvalidArgumentException;
+use yii\base\InvalidConfigException;
 
 class OrderSync extends Component
 {
-    /** @var Settings */
-    private $settings;
+    private ?Settings $settings = null;
     
-    /** @var PicqerApi */
-    private $picqerApi;
+    private ?PicqerApi $picqerApi = null;
     
-    /** @var Log */
-    private $log;
+    private ?Log $log = null;
     
-    public function init()
+    public function init(): void
     {
         parent::init();
 
@@ -35,56 +33,66 @@ class OrderSync extends Component
         $this->log = CommercePicqerPlugin::getInstance()->log;
     }
 
-    public function registerEventListeners()
+    public function registerEventListeners(): void
     {
         Event::on(
             Order::class,
-            Order::EVENT_AFTER_SAVE,
-            function (ModelEvent $event) {
+            Element::EVENT_AFTER_SAVE,
+            function(ModelEvent $event): void {
+                /** @var Order $order */
+                $order = $event->sender;
                 if (!$this->settings->pushOrders) {
                     return;
                 }
 
-                if ($event->sender->propagating) {
+                if ($order->propagating) {
                     return;
                 }
-                
-                $this->syncOrder($event->sender);
+
+                $this->syncOrder($order);
             }
         );
-        
     }
-    
-    public function syncOrder(Order $order)
+
+    /**
+     * @param Order $order
+     * @return void
+     */
+    public function syncOrder(Order $order): void
     {
         $status = $this->getOrderSyncStatus($order);
 
         try {
-            $orderStatusToPush = is_array($this->settings->orderStatusToPush) ? $this->settings->orderStatusToPush : [];
-            $orderStatusToAllocate = is_array($this->settings->orderStatusToAllocate) ? $this->settings->orderStatusToAllocate : [];
-            $orderStatusToProcess = is_array($this->settings->orderStatusToProcess) ? $this->settings->orderStatusToProcess : [];
-            
+            $orderStatusToPush = $this->settings->orderStatusToPush;
+            $orderStatusToAllocate = $this->settings->orderStatusToAllocate;
+            $orderStatusToProcess = $this->settings->orderStatusToProcess;
             $orderStatus = $order->getOrderStatus();
             if (!$orderStatus) {
                 return;
             }
             
-            if (in_array($orderStatus->handle, $orderStatusToPush)) {
+            if (in_array($orderStatus->handle, $orderStatusToPush, true)) {
                 $this->pushOrder($status);
             }
-            if (in_array($orderStatus->handle, $orderStatusToAllocate) && !in_array($orderStatus->handle, $orderStatusToProcess)) {
+            if (in_array($orderStatus->handle, $orderStatusToAllocate, true) && !in_array($orderStatus->handle, $orderStatusToProcess, true)) {
                 $this->allocateStockForOrder($status);
             }
-            if (in_array($orderStatus->handle, $orderStatusToProcess)) {
+            if (in_array($orderStatus->handle, $orderStatusToProcess, true)) {
                 $this->processOrder($status);
             }
-            
         } catch (\Exception $e) {
             $this->log->error("Picqer order synchronization failed.", $e);
         }
     }
 
-    public function pushOrder(OrderSyncStatus $status, $force = false)
+    /**
+     * @param OrderSyncStatus $status
+     * @param bool $force
+     * @return bool
+     * @throws PicqerApiException
+     * @throws InvalidConfigException
+     */
+    public function pushOrder(OrderSyncStatus $status, bool $force = false): bool
     {
         $order = $status->getOrder();
         if ($order === null) {
@@ -111,7 +119,13 @@ class OrderSync extends Component
         return true;
     }
 
-    public function allocateStockForOrder(OrderSyncStatus $status)
+    /**
+     * @param OrderSyncStatus $status
+     * @return bool
+     * @throws InvalidConfigException
+     * @throws PicqerApiException
+     */
+    public function allocateStockForOrder(OrderSyncStatus $status): bool
     {
         $order = $status->getOrder();
         if ($order === null) {
@@ -125,8 +139,7 @@ class OrderSync extends Component
         try {
             $this->picqerApi->allocateStockForOrder($status->picqerOrderId);
         } catch (PicqerApiException $e) {
-            if ($e->getPicqerErrorCode() != PicqerApiException::ORDER_ALREADY_CLOSED &&
-                $e->getPicqerErrorCode() != PicqerApiException::ORDER_ALREADY_CLOSED) {
+            if ($e->getPicqerErrorCode() != PicqerApiException::ORDER_ALREADY_CLOSED) {
                 throw $e;
             }
         }
@@ -138,7 +151,13 @@ class OrderSync extends Component
         return true;
     }
 
-    public function processOrder(OrderSyncStatus $status)
+    /**
+     * @param OrderSyncStatus $status
+     * @return bool
+     * @throws InvalidConfigException
+     * @throws PicqerApiException
+     */
+    public function processOrder(OrderSyncStatus $status): bool
     {
         $order = $status->getOrder();
         if ($order === null) {
@@ -152,8 +171,7 @@ class OrderSync extends Component
         try {
             $this->picqerApi->processOrder($status->picqerOrderId);
         } catch (PicqerApiException $e) {
-            if ($e->getPicqerErrorCode() != PicqerApiException::ORDER_ALREADY_CLOSED &&
-                $e->getPicqerErrorCode() != PicqerApiException::ORDER_ALREADY_CLOSED) {
+            if ($e->getPicqerErrorCode() != PicqerApiException::ORDER_ALREADY_CLOSED) {
                 throw $e;
             }
         }
@@ -165,8 +183,13 @@ class OrderSync extends Component
         
         return true;
     }
-    
-    public function getOrderSyncStatus(Order $order)
+
+    /**
+     * @param Order $order
+     * @return OrderSyncStatus
+     * @throws \Exception
+     */
+    public function getOrderSyncStatus(Order $order): OrderSyncStatus
     {
         $record = OrderSyncStatusRecord::findOne([
             'orderId' => $order->id,
@@ -177,36 +200,41 @@ class OrderSync extends Component
             ]);
         }
         
-        $status = new OrderSyncStatus($record);
+        $status = new OrderSyncStatus($record->toArray());
         $status->setOrder($order);
 
         return $status;
     }
 
-    public function saveOrderSyncStatus(OrderSyncStatus $model)
+    /**
+     * @param OrderSyncStatus $model
+     * @return bool
+     */
+    public function saveOrderSyncStatus(OrderSyncStatus $model): bool
     {
-        $record = OrderSyncStatusRecord::findOne([
-            'id' => $model->id,
-        ]);
-        if (!$record) {
+        if (isset($model->id)) {
+            $record = OrderSyncStatusRecord::findOne([
+                'id' => $model->id,
+            ]);
+            if (!$record instanceof OrderSyncStatusRecord) {
+                throw new InvalidArgumentException('No order sync status exists with the ID "' . $model->id . '"');
+            }
+        } else {
             $record = new OrderSyncStatusRecord([
                 'orderId' => $model->orderId,
             ]);
         }
         
         $record->picqerOrderId = $model->picqerOrderId;
-        $record->pushed = (bool)$model->pushed;
-        $record->stockAllocated = (bool)$model->stockAllocated;
-        $record->processed = (bool)$model->processed;
+        $record->pushed = $model->pushed;
+        $record->stockAllocated = $model->stockAllocated;
+        $record->processed = $model->processed;
         $record->picqerOrderNumber = $model->picqerOrderNumber;
         $record->publicStatusPage = $model->publicStatusPage;
-        $record->dateCreated = $model->dateCreated;
-        $record->dateUpdated = $model->dateUpdated;
-        $record->dateDeleted = $model->dateDeleted;
+        $record->dateDeleted = $model->dateDeleted ?? null;
 
         $record->save();
-        $model->id = $record->id;
-        $model->dateCreated = $record->dateCreated;
+        $model->id = $record->getAttribute('id');
 
         return true;
     }

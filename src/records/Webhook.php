@@ -3,9 +3,12 @@
 
 namespace white\commerce\picqer\records;
 
-
 use craft\db\ActiveRecord;
 
+/**
+ * @property int $picqerHookId
+ * @property string $secret
+ */
 class Webhook extends ActiveRecord
 {
     /**

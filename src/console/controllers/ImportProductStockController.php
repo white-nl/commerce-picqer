@@ -4,7 +4,12 @@
 namespace white\commerce\picqer\console\controllers;
 
 use craft\helpers\App;
+use Picqer\Api\Exception;
 use white\commerce\picqer\CommercePicqerPlugin;
+use white\commerce\picqer\models\Settings;
+use white\commerce\picqer\services\Log;
+use white\commerce\picqer\services\PicqerApi;
+use white\commerce\picqer\services\ProductSync;
 
 class ImportProductStockController extends \yii\console\Controller
 {
@@ -12,41 +17,29 @@ class ImportProductStockController extends \yii\console\Controller
      * Limit processing to specified amount of entries.
      * @var integer|null
      */
-    public $limit = null;
+    public ?int $limit = null;
 
     /**
      * Skip the specified amount of entries before starting the processing.
      * @var integer|null
      */
-    public $offset = null;
+    public ?int $offset = null;
 
     /**
      * Enable debug mode: stop on the first error.
      * @var bool
      */
-    public $debug = false;
+    public bool $debug = false;
     
-    /**
-     * @var \white\commerce\picqer\services\PicqerApi
-     */
-    private $picqerApi;
+    private ?PicqerApi $picqerApi = null;
     
-    /**
-     * @var \white\commerce\picqer\models\Settings
-     */
-    private $settings;
+    private ?Settings $settings = null;
     
-    /**
-     * @var \white\commerce\picqer\services\Log
-     */
-    private $log;
+    private ?Log $log = null;
     
-    /**
-     * @var \white\commerce\picqer\services\ProductSync
-     */
-    private $productSync;
+    private ?ProductSync $productSync = null;
 
-    public function init()
+    public function init(): void
     {
         parent::init();
         
@@ -57,7 +50,11 @@ class ImportProductStockController extends \yii\console\Controller
     }
 
 
-    public function options($actionID)
+    /**
+     * @param mixed $actionID
+     * @return array|string[]
+     */
+    public function options(mixed $actionID): array
     {
         $options = parent::options($actionID);
         $options[] = 'limit';
@@ -67,14 +64,21 @@ class ImportProductStockController extends \yii\console\Controller
         return $options;
     }
 
-    public function beforeAction($action)
+    /**
+     * @inheritdoc
+     */
+    public function beforeAction($action): bool
     {
         App::maxPowerCaptain();
 
         return parent::beforeAction($action);
     }
 
-    public function actionIndex()
+    /**
+     * @return int
+     * @throws Exception
+     */
+    public function actionIndex(): int
     {
         if (!$this->settings->pullProductStock) {
             $this->stderr("Product stock synchronization is disabled. Please check your plugin settings." . PHP_EOL);
@@ -109,8 +113,13 @@ class ImportProductStockController extends \yii\console\Controller
         $this->log->log("Product stock import finished. Total products processed: {$count}.");
         return 0;
     }
-    
-    protected function processProduct($productData)
+
+    /**
+     * @param array $productData
+     * @return void
+     * @throws \Exception
+     */
+    protected function processProduct(array $productData): void
     {
         $sku = $productData['productcode'];
 

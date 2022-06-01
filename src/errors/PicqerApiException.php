@@ -9,15 +9,15 @@ class PicqerApiException extends \Exception
     public const ORDER_IS_BEING_PROCESSED = 30;
     public const ORDER_ALREADY_CLOSED = 32;
     
-    protected $picqerErrorCode;
+    protected mixed $picqerErrorCode;
     
-    protected $picqerErrorMessage;
+    protected mixed $picqerErrorMessage;
     
     public function __construct(array $response)
     {
         if (isset($response['errormessage'])) {
             if (is_string($response['errormessage'])) {
-                $data = \json_decode($response['errormessage'], true);
+                $data = \json_decode($response['errormessage'], true, 512, JSON_THROW_ON_ERROR);
                 if ($data !== null) {
                     $response['errormessage'] = $data;
                 }
@@ -33,7 +33,7 @@ class PicqerApiException extends \Exception
         
         $message = sprintf('Invalid Picqer API response: [%d] %s',
             $this->picqerErrorCode,
-            $this->picqerErrorMessage ?? \json_encode($response));
+            $this->picqerErrorMessage ?? \json_encode($response, JSON_THROW_ON_ERROR));
         
         parent::__construct($message);
     }
@@ -41,7 +41,7 @@ class PicqerApiException extends \Exception
     /**
      * @return mixed
      */
-    public function getPicqerErrorCode()
+    public function getPicqerErrorCode(): mixed
     {
         return $this->picqerErrorCode;
     }
@@ -49,7 +49,7 @@ class PicqerApiException extends \Exception
     /**
      * @return mixed
      */
-    public function getPicqerErrorMessage()
+    public function getPicqerErrorMessage(): mixed
     {
         return $this->picqerErrorMessage;
     }

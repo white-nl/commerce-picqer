@@ -5,21 +5,37 @@ namespace white\commerce\picqer\controllers\admin;
 
 use Craft;
 use craft\commerce\Plugin as CommercePlugin;
+use craft\errors\MissingComponentException;
 use craft\web\Controller;
 use white\commerce\picqer\CommercePicqerPlugin;
-use white\commerce\picqer\errors\PicqerApiException;
+use yii\base\InvalidConfigException;
+use yii\web\BadRequestHttpException;
+use yii\web\ForbiddenHttpException;
 use yii\web\NotFoundHttpException;
+use yii\web\Response;
 
 class OrdersController extends Controller
 {
-    public function init()
+    /**
+     * @throws ForbiddenHttpException
+     * @throws InvalidConfigException
+     */
+    public function init(): void
     {
         parent::init();
 
         $this->requirePermission('accessPlugin-commerce-picqer');
     }
 
-    public function actionPush()
+    /**
+     * @return Response
+     * @throws NotFoundHttpException
+     * @throws MissingComponentException
+     * @throws InvalidConfigException
+     * @throws BadRequestHttpException
+     * @throws ForbiddenHttpException
+     */
+    public function actionPush(): Response
     {
         $this->requirePermission('commerce-picqer-pushOrders');
         
@@ -47,7 +63,15 @@ class OrdersController extends Controller
         return $this->redirectToPostedUrl();
     }
 
-    public function actionAllocate()
+    /**
+     * @return Response
+     * @throws BadRequestHttpException
+     * @throws ForbiddenHttpException
+     * @throws InvalidConfigException
+     * @throws MissingComponentException
+     * @throws NotFoundHttpException
+     */
+    public function actionAllocate(): Response
     {
         $this->requirePermission('commerce-picqer-pushOrders');
         
@@ -75,7 +99,15 @@ class OrdersController extends Controller
         return $this->redirectToPostedUrl();
     }
 
-    public function actionProcess()
+    /**
+     * @return Response
+     * @throws BadRequestHttpException
+     * @throws ForbiddenHttpException
+     * @throws InvalidConfigException
+     * @throws MissingComponentException
+     * @throws NotFoundHttpException
+     */
+    public function actionProcess(): Response
     {
         $this->requirePermission('commerce-picqer-pushOrders');
         
@@ -102,5 +134,4 @@ class OrdersController extends Controller
 
         return $this->redirectToPostedUrl();
     }
-
 }
