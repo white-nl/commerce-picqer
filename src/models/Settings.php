@@ -15,9 +15,9 @@ use yii\base\InvalidConfigException;
  */
 class Settings extends Model
 {
-    public string $apiDomain;
+    public string $apiDomain = '';
     
-    public string $apiKey;
+    public string $apiKey = '';
 
     public bool $pushOrders = false;
     
@@ -39,7 +39,7 @@ class Settings extends Model
 
     public bool $fastStockUpdate = false;
 
-    public string $pluginNameOverride;
+    public string $pluginNameOverride = '';
 
     /**
      * @inheritdoc

@@ -3,7 +3,6 @@
 namespace white\commerce\picqer;
 
 use Craft;
-use craft\base\Model;
 use craft\base\Plugin;
 use craft\commerce\elements\Order;
 use craft\events\RegisterUrlRulesEvent;
@@ -82,7 +81,7 @@ class CommercePicqerPlugin extends Plugin
         });
     }
 
-    protected function createSettingsModel(): ?Model
+    protected function createSettingsModel(): Settings
     {
         return new Settings();
     }
