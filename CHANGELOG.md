@@ -1,6 +1,6 @@
 # Release Notes for Craft Picqer Plugin
 
-## Unreleased
+## 2.1.0 - 2025-04-28
 
 ### Changed
 
