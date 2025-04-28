@@ -8,7 +8,9 @@ use craft\base\Component;
 use craft\commerce\base\PurchasableInterface;
 use craft\commerce\elements\Order;
 use craft\elements\Address;
+use craft\helpers\ArrayHelper;
 use Picqer\Api\Client as PicqerApiClient;
+use Picqer\Api\Exception;
 use white\commerce\picqer\CommercePicqerPlugin;
 use white\commerce\picqer\errors\PicqerApiException;
 use white\commerce\picqer\models\Settings;
@@ -43,6 +45,25 @@ class PicqerApi extends Component
         }
         
         return $this->client;
+    }
+
+    public function getWarehouses(): array
+    {
+        $result = $this->getClient()->getWarehouses();
+
+        if (!isset($result['success']) || !isset($result['data']) || $result['success'] !== true) {
+            throw new Exception("Invalid API response: " . json_encode($result));
+        }
+
+        return $result['data'];
+    }
+
+    public function getActiveWarehouses(): array
+    {
+        $warehouses = $this->getWarehouses();
+        return ArrayHelper::getColumn(array_filter($warehouses, function($warehouse) {
+            return $warehouse['active'] && $warehouse['counts_for_general_stock'];
+        }), 'idwarehouse');
     }
 
     /**

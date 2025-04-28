@@ -1,5 +1,11 @@
 # Release Notes for Craft Picqer Plugin
 
+## Unreleased
+
+### Changed
+
+ - Check if the warehouse is `active` and the `counts_for_general_stock` is enabled before setting the stock
+
 ## 2.0.0 - 2022-06-01
 
 ### Added

@@ -76,9 +76,13 @@ class WebhooksController extends Controller
             }
 
             $sku = $data['productcode'];
+            $warehouses = CommercePicqerPlugin::getInstance()->api->getActiveWarehouses();
             $totalFreeStock = 0;
             if (!empty($data['stock'])) {
                 foreach ($data['stock'] as $item) {
+                    if (!in_array($item['idwarehouse'], $warehouses)) {
+                        continue;
+                    }
                     $totalFreeStock += $item['freestock'];
                 }
             }

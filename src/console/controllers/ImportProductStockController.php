@@ -75,6 +75,8 @@ class ImportProductStockController extends \yii\console\Controller
     }
 
     /**
+     * Synchronizing product stock with Picqer
+     *
      * @return int
      * @throws Exception
      */
@@ -89,6 +91,7 @@ class ImportProductStockController extends \yii\console\Controller
 
         $i = 0;
         $count = 0;
+        $warehouses = $this->picqerApi->getActiveWarehouses();
         foreach ($this->picqerApi->getProducts() as $product) {
             $i++;
             if ($i <= $this->offset) {
@@ -99,7 +102,7 @@ class ImportProductStockController extends \yii\console\Controller
             }
             
             try {
-                $this->processProduct($product);
+                $this->processProduct($product, $warehouses);
                 $count++;
             } catch (\Exception $e) {
                 $this->log->error("Cound not process a product.", $e);
@@ -116,16 +119,20 @@ class ImportProductStockController extends \yii\console\Controller
 
     /**
      * @param array $productData
+     * @param array $warehouses
      * @return void
      * @throws \Exception
      */
-    protected function processProduct(array $productData): void
+    protected function processProduct(array $productData, array $warehouses): void
     {
         $sku = $productData['productcode'];
 
         $totalFreeStock = 0;
         if (!empty($productData['stock'])) {
             foreach ($productData['stock'] as $item) {
+                if (!in_array($item['idwarehouse'], $warehouses)) {
+                    continue;
+                }
                 $totalFreeStock += $item['freestock'];
             }
         }
