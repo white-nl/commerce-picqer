@@ -72,6 +72,6 @@ return [
 ```
 
 ## Documentation
-https://white.nl/en/craft-plugins/picqer/docs/
+[Documentation](https://user-guide.white.nl/picqer/)
 
 Picqer for Craft CMS is brought to you by WHITE Digital Agency
