@@ -13,13 +13,16 @@ use Picqer\Api\Client as PicqerApiClient;
 use Picqer\Api\Exception;
 use white\commerce\picqer\CommercePicqerPlugin;
 use white\commerce\picqer\errors\PicqerApiException;
+use white\commerce\picqer\events\OrderLineItemsEvent;
 use white\commerce\picqer\models\Settings;
 use yii\base\InvalidConfigException;
 
 class PicqerApi extends Component
 {
+    public const EVENT_GET_ORDER_LINE_ITEMS_TO_PUSH = 'getOrderLineItemsToPush';
+
     private ?Settings $settings = null;
-    
+
     private ?PicqerApiClient $client = null;
 
     public function init(): void
@@ -40,10 +43,10 @@ class PicqerApi extends Component
             $apiClient = new PicqerApiClient($this->settings->getApiDomain(), $this->settings->getApiKey());
             $apiClient->enableRetryOnRateLimitHit();
             $apiClient->setUseragent(CommercePicqerPlugin::getInstance()->description . ' (' . CommercePicqerPlugin::getInstance()->developerUrl . ')');
-            
+
             $this->client = $apiClient;
         }
-        
+
         return $this->client;
     }
 
@@ -112,20 +115,20 @@ class PicqerApi extends Component
     {
         $data = $this->buildOrderData($order);
         $data['products'] = [];
-        foreach ($order->getLineItems() as $lineItem) {
+        foreach ($this->getOrderLineItemsToPush($order) as $lineItem) {
             $lineData = [
                 'productcode' => $lineItem->getSku(),
                 'amount' => $lineItem->qty,
                 'remarks' => $lineItem->note,
             ];
-            
+
             if ($this->settings->pushPrices) {
                 $lineData['price'] = $lineItem->getSalePrice();
             }
 
             $data['products'][] = $lineData;
         }
-        
+
         try {
             $response = $this->getClient()->addOrder($data);
             if (!$response['success'] || !isset($response['data']['idorder'])) {
@@ -134,19 +137,19 @@ class PicqerApi extends Component
         } catch (PicqerApiException $e) {
             if ($e->getPicqerErrorCode() == PicqerApiException::PRODUCT_DOES_NOT_EXIST && $createMissingProducts) {
                 $purchasables = [];
-                foreach ($order->getLineItems() as $lineItem) {
+                foreach ($this->getOrderLineItemsToPush($order) as $lineItem) {
                     if (!array_keys($purchasables, $lineItem->getSku())) {
                         $purchasables[$lineItem->getSku()] = $lineItem->getPurchasable();
                     }
                 }
                 $this->createMissingProducts($purchasables);
-                
+
                 return $this->pushOrder($order, false);
             } else {
                 throw $e;
             }
         }
-        
+
         return $response['data'];
     }
 
@@ -164,7 +167,7 @@ class PicqerApi extends Component
             throw new PicqerApiException($response);
         }
         $picqerOrder = $response['data'];
-        
+
         // Update order data
         $data = $this->buildOrderData($order);
         $orderUpdateResponse = $response = $this->getClient()->updateOrder($picqerOrderId, $data);
@@ -194,7 +197,7 @@ class PicqerApi extends Component
         }
 
         // Push new products
-        foreach ($order->getLineItems() as $lineItem) {
+        foreach ($this->getOrderLineItemsToPush($order) as $lineItem) {
             $response = $this->getClient()->getProducts(['productcode' => $lineItem->getSku()]);
             if (!$response['success']) {
                 throw new PicqerApiException($response);
@@ -231,11 +234,11 @@ class PicqerApi extends Component
                 throw new PicqerApiException($response);
             }
         }
-        
+
         if ($allocated) {
             $this->allocateStockForOrder($picqerOrderId);
         }
-        
+
         return $orderUpdateResponse['data'];
     }
 
@@ -265,7 +268,7 @@ class PicqerApi extends Component
         if (!$response['success'] || !isset($response['data'])) {
             throw new PicqerApiException($response);
         }
-        
+
         return $response['data'];
     }
 
@@ -388,15 +391,15 @@ class PicqerApi extends Component
         if ($address?->getOrganization()) {
             return $address->getOrganization();
         }
-        
+
         if ($address?->fullName) {
             return $address->fullName;
         }
-        
+
         if ($address?->firstName || $address?->lastName) {
             return trim(sprintf('%s %s', $address->firstName, $address->lastName));
         }
-        
+
         return $address?->getId();
     }
 
@@ -415,7 +418,22 @@ class PicqerApi extends Component
                 return trim(sprintf('%s %s', $address->firstName, $address->lastName));
             }
         }
-        
+
         return '';
+    }
+
+    /**
+     * @param \craft\commerce\elements\Order $order
+     * @return Craft\commerce\models\LineItem[]
+     */
+    protected function getOrderLineItemsToPush(Order $order): array
+    {
+        $event = new OrderLineItemsEvent([
+            'order' => $order,
+            'lineItems' => $order->getLineItems(),
+        ]);
+        $this->trigger(self::EVENT_GET_ORDER_LINE_ITEMS_TO_PUSH, $event);
+
+        return $event->lineItems;
     }
 }
