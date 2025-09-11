@@ -8,5 +8,5 @@ use craft\commerce\elements\Order;
 
 class OrderEvent extends Event
 {
-    public Order $order = null;
+    public ?Order $order = null;
 }
