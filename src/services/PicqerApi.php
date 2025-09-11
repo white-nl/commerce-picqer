@@ -424,7 +424,7 @@ class PicqerApi extends Component
 
     /**
      * @param \craft\commerce\elements\Order $order
-     * @return Craft\commerce\models\LineItem[]
+     * @return \craft\commerce\models\LineItem[]
      */
     protected function getOrderLineItemsToPush(Order $order): array
     {
