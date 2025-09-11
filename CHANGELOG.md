@@ -1,5 +1,11 @@
 # Release Notes for Craft Picqer Plugin
 
+## 2.2.0 - 2025-09-10
+
+### Added
+
+ - Added a new `PicqerApi::EVENT_GET_ORDER_LINE_ITEMS_TO_PUSH` event that allows to filter order line items sent to Picqer.
+
 ## 2.1.0 - 2025-04-28
 
 ### Changed
