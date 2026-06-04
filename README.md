@@ -16,8 +16,8 @@ of the product variant on the Craft side and matches it to the **Product Code** 
 Requirements
 ------------
 
-* This plugin requires Craft CMS 4.0.0 or later
-* This plugin requires Craft Commerce version 4.0
+* This plugin requires Craft CMS 5.0.0 or later
+* This plugin requires Craft Commerce version 5.0
 * A valid Picqer account is required
 * The Craft website should be publicly accessible
 * Changing settings should be allowed in Craft ([allow admin changes](https://craftcms.com/docs/3.x/config/config-settings.html#allowadminchanges)), and a user who is an Admin in Craft.

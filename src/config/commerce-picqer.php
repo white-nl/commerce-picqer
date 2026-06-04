@@ -13,5 +13,4 @@ return [
     //'orderStatusMapping' => [
     //    ['craft' => 1, 'picqer' => 'completed', 'changeTo' => 2],
     //],
-    //'fastStockUpdate' => false,
 ];
