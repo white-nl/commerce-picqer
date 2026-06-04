@@ -50,7 +50,7 @@ class ProductSync extends Component
         }
 
         // Resolve the configured inventory location, falling back to the first available one.
-        $inventoryLocationId = $this->settings->inventoryLocationId;
+        $inventoryLocationId = (int)$this->settings->inventoryLocationId;
         if (!$inventoryLocationId) {
             $inventoryLocation = CommercePlugin::getInstance()->getInventoryLocations()->getAllInventoryLocations()->first();
             if (!$inventoryLocation) {
