@@ -37,7 +37,7 @@ class Settings extends Model
 
     public array $orderStatusMapping = [];
 
-    public bool $fastStockUpdate = false;
+    public ?int $inventoryLocationId = null;
 
     public string $pluginNameOverride = '';
 
@@ -91,6 +91,28 @@ class Settings extends Model
         $options = [];
         foreach (OrderSyncStatus::STATUSES as $value => $label) {
             $options[] = ['value' => $value, 'label' => $label];
+        }
+
+        return $options;
+    }
+
+    /**
+     * Get all inventory locations as options for a select field.
+     *
+     * @param string|null $optional Optional first empty/placeholder label
+     * @return array
+     */
+    public function getInventoryLocationOptions(?string $optional = null): array
+    {
+        $locations = CommercePlugin::getInstance()->getInventoryLocations()->getAllInventoryLocations();
+        $options = [];
+
+        if ($optional !== null) {
+            $options[] = ['value' => '', 'label' => $optional];
+        }
+
+        foreach ($locations as $location) {
+            $options[] = ['value' => $location->id, 'label' => $location->getUiLabel()];
         }
 
         return $options;

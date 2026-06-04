@@ -1,5 +1,15 @@
 # Release Notes for Craft Picqer Plugin
 
+## 3.0.0 - 2026-06-04
+
+### Added
+
+ - Added Craft CMS 5 and Craft Commerce 5 compatibility.
+ - Added a new plugin setting to choose which Craft Commerce inventory location receives stock updates from Picqer.
+
+### Changed
+ - Updated stock synchronization to use Craft Commerce 5 inventory management instead of directly writing variant stock values.
+
 ## 2.2.0 - 2025-09-10
 
 ### Added
