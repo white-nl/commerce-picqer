@@ -6,9 +6,14 @@
 
  - Added Craft CMS 5 and Craft Commerce 5 compatibility.
  - Added a new plugin setting to choose which Craft Commerce inventory location receives stock updates from Picqer.
+ - Added config setting for maxBatchSize for the `import-product-stock` command.
 
 ### Changed
  - Updated stock synchronization to use Craft Commerce 5 inventory management instead of directly writing variant stock values.
+
+### Deprecated
+
+- Deprecated `fastStockUpdate`. It is ignored in Craft 5 and will be removed in 4.0.0.
 
 ## 2.2.0 - 2025-09-10
 

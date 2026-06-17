@@ -92,25 +92,30 @@ class ImportProductStockController extends \yii\console\Controller
         $i = 0;
         $count = 0;
         $warehouses = $this->picqerApi->getActiveWarehouses();
-        foreach ($this->picqerApi->getProducts() as $product) {
-            $i++;
-            if ($i <= $this->offset) {
-                continue;
-            }
-            if ($this->limit !== null && ($i - $this->offset) > $this->limit) {
-                break;
-            }
-            
-            try {
-                $this->processProduct($product, $warehouses);
-                $count++;
-            } catch (\Exception $e) {
-                $this->log->error("Cound not process a product.", $e);
-                
-                if ($this->debug) {
-                    throw $e;
+
+        try {
+            foreach ($this->picqerApi->getProducts() as $product) {
+                $i++;
+                if ($i <= $this->offset) {
+                    continue;
+                }
+                if ($this->limit !== null && ($i - $this->offset) > $this->limit) {
+                    break;
+                }
+
+                try {
+                    $this->processProduct($product, $warehouses);
+                    $count++;
+                } catch (\Exception $e) {
+                    $this->log->error("Cound not process a product.", $e);
+
+                    if ($this->debug) {
+                        throw $e;
+                    }
                 }
             }
+        } finally {
+            $this->productSync->flushStockUpdates();
         }
         
         $this->log->log("Product stock import finished. Total products processed: {$count}.");
