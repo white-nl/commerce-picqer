@@ -37,7 +37,14 @@ class Settings extends Model
 
     public array $orderStatusMapping = [];
 
+    /**
+     * @deprecated in 3.0.0. This setting is ignored in Craft 5 and will be removed in 4.0.0.
+     */
+    public bool $fastStockUpdate = false;
+
     public ?int $inventoryLocationId = null;
+
+    public int $maxBatchSize = 100;
 
     public string $pluginNameOverride = '';
 
@@ -57,6 +64,9 @@ class Settings extends Model
         return [
             ['pluginNameOverride', 'default', 'value' => Craft::t('commerce-picqer', "Picqer")],
             ['orderStatusMapping', 'default', 'value' => []],
+            ['fastStockUpdate', 'boolean'],
+            ['maxBatchSize', 'default', 'value' => 100],
+            ['maxBatchSize', 'integer', 'min' => 1],
             [['apiDomain', 'apiKey'], 'required'],
         ];
     }

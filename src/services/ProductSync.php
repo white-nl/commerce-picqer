@@ -17,6 +17,12 @@ class ProductSync extends Component
 {
     private ?Settings $settings = null;
 
+    private int $maxBatchSize = 100;
+
+    private ?int $inventoryLocationId = null;
+
+    private UpdateInventoryLevelCollection $pendingInventoryUpdates;
+
     /**
      * @var Log
      */
@@ -28,6 +34,8 @@ class ProductSync extends Component
 
         $this->settings = CommercePicqerPlugin::getInstance()->getSettings();
         $this->log = CommercePicqerPlugin::getInstance()->log;
+        $this->maxBatchSize = max(1, (int)$this->settings->maxBatchSize);
+        $this->pendingInventoryUpdates = UpdateInventoryLevelCollection::make();
     }
 
     /**
@@ -49,15 +57,7 @@ class ProductSync extends Component
             return;
         }
 
-        // Resolve the configured inventory location, falling back to the first available one.
-        $inventoryLocationId = (int)$this->settings->inventoryLocationId;
-        if (!$inventoryLocationId) {
-            $inventoryLocation = CommercePlugin::getInstance()->getInventoryLocations()->getAllInventoryLocations()->first();
-            if (!$inventoryLocation) {
-                throw new \Exception("No inventory location found. Please configure an inventory location in the Picqer plugin settings.");
-            }
-            $inventoryLocationId = $inventoryLocation->id;
-        }
+        $inventoryLocationId = $this->resolveInventoryLocationId();
 
         $inventoryService = CommercePlugin::getInstance()->getInventory();
 
@@ -77,11 +77,51 @@ class ProductSync extends Component
             'note' => 'Updated from Picqer sync',
         ]);
 
-        $updateInventoryLevels = UpdateInventoryLevelCollection::make();
-        $updateInventoryLevels->push($updateInventoryLevel);
+        $this->pendingInventoryUpdates->push($updateInventoryLevel);
+        $this->log->trace("Variant '{$sku}' inventory queued to '{$stock}' at location ID {$inventoryLocationId}.");
 
-        $inventoryService->executeUpdateInventoryLevels($updateInventoryLevels);
+        if ($this->pendingInventoryUpdates->count() >= $this->maxBatchSize) {
+            $this->flushStockUpdates();
+        }
+    }
 
-        $this->log->trace("Variant '{$sku}' inventory set to '{$stock}' at location ID {$inventoryLocationId}.");
+    /**
+     * @return void
+     * @throws \Throwable
+     */
+    public function flushStockUpdates(): void
+    {
+        $count = $this->pendingInventoryUpdates->count();
+        if ($count === 0) {
+            return;
+        }
+
+        CommercePlugin::getInstance()->getInventory()->executeUpdateInventoryLevels($this->pendingInventoryUpdates);
+        $this->pendingInventoryUpdates = UpdateInventoryLevelCollection::make();
+        $this->log->trace("{$count} inventory updates executed in batch.");
+    }
+
+    /**
+     * @return int
+     * @throws \Exception
+     */
+    private function resolveInventoryLocationId(): int
+    {
+        if ($this->inventoryLocationId !== null) {
+            return $this->inventoryLocationId;
+        }
+
+        $inventoryLocationId = (int)$this->settings->inventoryLocationId;
+        if (!$inventoryLocationId) {
+            $inventoryLocation = CommercePlugin::getInstance()->getInventoryLocations()->getAllInventoryLocations()->first();
+            if (!$inventoryLocation) {
+                throw new \Exception("No inventory location found. Please configure an inventory location in the Picqer plugin settings.");
+            }
+            $inventoryLocationId = $inventoryLocation->id;
+        }
+
+        $this->inventoryLocationId = $inventoryLocationId;
+
+        return $this->inventoryLocationId;
     }
 }

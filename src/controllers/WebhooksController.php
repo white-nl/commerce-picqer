@@ -89,6 +89,7 @@ class WebhooksController extends Controller
             
             $this->log->log("Updating stock for product '$sku': {$totalFreeStock}");
             $this->productSync->updateStock($sku, $totalFreeStock);
+            $this->productSync->flushStockUpdates();
         } catch (HttpException $e) {
             $this->log->error("Could not process webhook", $e);
             return $this->asJson(['status' => 'ERROR'])->setStatusCode($e->statusCode);

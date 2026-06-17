@@ -14,4 +14,5 @@ return [
     //    ['craft' => 1, 'picqer' => 'completed', 'changeTo' => 2],
     //],
     //'inventoryLocationId' => null,
+    //'maxBatchSize' => 100,
 ];

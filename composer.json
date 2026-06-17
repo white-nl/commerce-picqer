@@ -22,7 +22,7 @@
         "hasCpSettings": true,
         "hasCpSection": true,
         "class": "white\\commerce\\picqer\\CommercePicqerPlugin",
-        "documentationUrl": "https://white.nl/en/craft-plugins/picqer/docs/"
+        "documentationUrl": "https://user-guide.white.nl/picqer/"
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
