@@ -139,7 +139,18 @@
                     on:           settings.pullProductStock,
                     disabled:     not allowAdminChanges,
                 }) }}
-                
+
+                {{ forms.selectField({
+                    label:        "Inventory Location"|t('commerce-picqer'),
+                    instructions: "The Commerce inventory location where product stock from Picqer will be written. Defaults to the first available location if not set."|t('commerce-picqer'),
+                    id:           'inventoryLocationId',
+                    name:         'inventoryLocationId',
+                    options:      settings.getInventoryLocationOptions('— Default (first location) —'|t('commerce-picqer')),
+                    value:        settings.inventoryLocationId,
+                    errors:       settings.getErrors('inventoryLocationId'),
+                    disabled:     not allowAdminChanges,
+                }) }}
+
                 <div id="productStockSyncWebhook" class="webhook-status" data-hook-type="productStockSync">
                     {{ "Webhook status:"|t('commerce-picqer') }}
                     <output></output>
@@ -197,14 +208,6 @@
             </div>
             <div id="advanced" class="hidden">
 
-                {{ forms.lightswitchField({
-                    label:        "Fast stock updates"|t('commerce-picqer'),
-                    instructions: "Update product stock directly in the database without running normal product saving routine (may affect other plugins)."|t('commerce-picqer'),
-                    id:           'fastStockUpdate',
-                    name:         'fastStockUpdate',
-                    on:           settings.fastStockUpdate,
-                    disabled:     not allowAdminChanges,
-                }) }}
 
                 {{ forms.textField({
                     label:        "Plugin display name"|t('commerce-picqer'),

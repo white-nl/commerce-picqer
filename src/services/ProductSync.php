@@ -4,12 +4,14 @@
 namespace white\commerce\picqer\services;
 
 use craft\base\Component;
+use craft\commerce\collections\UpdateInventoryLevelCollection;
 use craft\commerce\elements\Variant;
-use craft\commerce\records\Variant as VariantRecord;
-use craft\errors\ElementNotFoundException;
+use craft\commerce\enums\InventoryTransactionType;
+use craft\commerce\enums\InventoryUpdateQuantityType;
+use craft\commerce\models\inventory\UpdateInventoryLevel;
+use craft\commerce\Plugin as CommercePlugin;
 use white\commerce\picqer\CommercePicqerPlugin;
 use white\commerce\picqer\models\Settings;
-use yii\base\Exception;
 
 class ProductSync extends Component
 {
@@ -33,45 +35,53 @@ class ProductSync extends Component
      * @param int $stock
      * @return void
      * @throws \Throwable
-     * @throws ElementNotFoundException
-     * @throws Exception
      */
     public function updateStock(string $sku, int $stock): void
     {
-        if ($this->settings->fastStockUpdate) {
-            $variantRecord = VariantRecord::findOne(['sku' => $sku]);
-            if (!$variantRecord) {
-                $this->log->trace("Variant '{$sku}' not found.");
-                return;
-            }
-
-            if ($variantRecord->stock != $stock) {
-                $variantRecord->stock = $stock;
-
-                if (!$variantRecord->save(false, ['stock'])) {
-                    throw new \Exception("Could not save variant stock.");
-                }
-                $this->log->trace("Variant '{$sku}' stock updated to '{$stock}'.");
-            } else {
-                $this->log->trace("Variant '{$sku}' stock remains unchanged: '{$stock}'");
-            }
-        } else {
-            $variant = Variant::find()->sku($sku)->one();
-            if (!$variant) {
-                $this->log->trace("Variant '{$sku}' not found.");
-                return;
-            }
-
-            if ($variant->stock != $stock) {
-                $variant->stock = $stock;
-
-                if (!\Craft::$app->getElements()->saveElement($variant)) {
-                    throw new \Exception("Could not save variant stock. " . implode("\n", $variant->getFirstErrors()));
-                }
-                $this->log->trace("Variant '{$sku}' stock updated to '{$stock}'.");
-            } else {
-                $this->log->trace("Variant '{$sku}' stock remains unchanged: '{$stock}'");
-            }
+        $variant = Variant::find()->sku($sku)->one();
+        if (!$variant) {
+            $this->log->trace("Variant '{$sku}' not found.");
+            return;
         }
+
+        if (!$variant->inventoryTracked || !$variant->inventoryItemId) {
+            $this->log->trace("Variant '{$sku}' is not inventory-tracked.");
+            return;
+        }
+
+        // Resolve the configured inventory location, falling back to the first available one.
+        $inventoryLocationId = (int)$this->settings->inventoryLocationId;
+        if (!$inventoryLocationId) {
+            $inventoryLocation = CommercePlugin::getInstance()->getInventoryLocations()->getAllInventoryLocations()->first();
+            if (!$inventoryLocation) {
+                throw new \Exception("No inventory location found. Please configure an inventory location in the Picqer plugin settings.");
+            }
+            $inventoryLocationId = $inventoryLocation->id;
+        }
+
+        $inventoryService = CommercePlugin::getInstance()->getInventory();
+
+        $currentLevel = $inventoryService->getInventoryLevel($variant->inventoryItemId, $inventoryLocationId);
+        $currentStock = (int)($currentLevel?->availableTotal ?? 0);
+        if ($currentStock === $stock) {
+            $this->log->trace("Variant '{$sku}' inventory unchanged at '{$stock}' for location ID {$inventoryLocationId}; skipping update.");
+            return;
+        }
+
+        $updateInventoryLevel = new UpdateInventoryLevel([
+            'quantity' => $stock,
+            'updateAction' => InventoryUpdateQuantityType::SET,
+            'inventoryItemId' => $variant->inventoryItemId,
+            'inventoryLocationId' => $inventoryLocationId,
+            'type' => InventoryTransactionType::AVAILABLE->value,
+            'note' => 'Updated from Picqer sync',
+        ]);
+
+        $updateInventoryLevels = UpdateInventoryLevelCollection::make();
+        $updateInventoryLevels->push($updateInventoryLevel);
+
+        $inventoryService->executeUpdateInventoryLevels($updateInventoryLevels);
+
+        $this->log->trace("Variant '{$sku}' inventory set to '{$stock}' at location ID {$inventoryLocationId}.");
     }
 }
